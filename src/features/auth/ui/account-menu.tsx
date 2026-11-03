@@ -14,7 +14,7 @@ export const SIGN_OUT_ENDPOINT = "/auth/sign-out";
  * 서버 로그아웃(POST)으로 문서 전체를 이동한다. 이전 계정의 메모리 상태가 남지 않고,
  * React 정리(cleanup)가 실행된다고 가정하지 않으므로 저장은 호출 전에 끝내야 한다.
  * 다른 탭 알림은 POST 가 끝나 로그인 화면에 도착한 뒤 SignedOutNotifier 가 보낸다
- * (POST 전에 알리면 같은 탭의 SessionGuard 이동이 POST 를 취소할 수 있다).
+ * (POST 전에 알리면 같은 탭의 SessionGate 이동이 POST 를 취소할 수 있다).
  */
 export function submitSignOut(): void {
   const form = document.createElement("form");

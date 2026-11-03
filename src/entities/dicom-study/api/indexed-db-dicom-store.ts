@@ -31,6 +31,8 @@ interface StoredFile {
 export interface IndexedDbDicomStore extends DicomStore {
   /** 진행 중 작업과 그 직후 이어지는 작업(직렬 저장 flush)이 끝난 뒤 닫는다 */
   closeWhenIdle(): void;
+  /** 실제로 닫힌 뒤 끝난다(계정 저장소 정리 완료 대기) */
+  whenClosed(): Promise<void>;
 }
 
 export function createIndexedDbDicomStore(
@@ -157,6 +159,10 @@ export function createIndexedDbDicomStore(
 
     closeWhenIdle() {
       lifecycle.closeWhenIdle();
+    },
+
+    whenClosed() {
+      return lifecycle.whenClosed();
     },
   };
 }

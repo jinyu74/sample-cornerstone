@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { createServerSupabase } from "@/shared/api/supabase/server";
+import {
+  AUTH_COOKIE_NAME,
+  isOwnAuthCookie,
+} from "@/shared/api/supabase/auth-cookie";
 import { NO_STORE } from "@/shared/api/supabase/proxy";
 import { isSameOriginRequest } from "@/shared/auth/same-origin";
 import { LOGIN_PATH } from "@/shared/lib/navigation";
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabase();
     await supabase.auth.signOut({ scope: "local" });
   } catch {
-    // 인증 서비스 오류여도 이 브라우저의 세션 쿠키는 아래에서 지운다.
+    // 인증 서비스 오류여도 이 앱의 세션 쿠키는 아래에서 지운다.
   }
 
   // 상대 Location: 서버 내부 주소(request.url 의 localhost 등)로 출처가 바뀌면
@@ -31,9 +35,12 @@ export async function POST(request: NextRequest) {
     status: 303,
     headers: { Location: `${LOGIN_PATH}?signed_out=1` },
   });
-  for (const cookie of request.cookies.getAll()) {
-    if (cookie.name.startsWith("sb-")) response.cookies.delete(cookie.name);
-  }
+  // 이 앱 세션 쿠키(키·청크)만 지운다. 같은 호스트의 다른 Supabase 프로젝트 쿠키는 보존한다.
+  // signOut 이 실패(서비스 오류)해도 이 브라우저에서는 확실히 로그아웃된다.
+  const own = new Set([AUTH_COOKIE_NAME]);
+  for (const cookie of request.cookies.getAll())
+    if (isOwnAuthCookie(cookie.name)) own.add(cookie.name);
+  for (const name of own) response.cookies.delete(name);
   response.headers.set("Cache-Control", NO_STORE);
   return response;
 }

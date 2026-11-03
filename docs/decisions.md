@@ -68,3 +68,5 @@
 - **문서 전체 이동과 저장**: 로그아웃은 문서 전체 이동이라 React 정리의 저장을 기대할 수 없다. 뷰어는 로그아웃 전에 `saveNow` 를 기다리고, 실패하면 확인 대화상자를 띄운다.
 - **기존 익명 저장소**: 이전 공용 `dicom-annotator` DB 는 열거나 지우거나 계정에 옮기지 않는다(다른 사람 자료가 섞이는 것을 막음). 재가져오기·JSON 복원을 안내한다.
 - **로컬 Supabase 설정**: `[auth] enable_signup = false` 로 모든 제공자의 공개 가입을 막는다. `[auth.email] enable_signup` 은 이메일 로그인 제공자 자체를 끄므로 `true` 로 둔다(끄면 `email_provider_disabled`). 공개 키만 Next 서버에 주고(`NEXT_PUBLIC_` 미사용) 서비스 비밀키는 로컬 관리 스크립트에서만 실행 중에 읽는다.
+- **세션 종료 시 fail-closed(PR #4 리뷰 P1)**: 세션 무효를 감지하면 문서 이동 성공 여부와 무관하게 SessionGate 가 보호 화면(계정 저장소 포함)을 먼저 언마운트하고 로그인 안내만 렌더링한다. 미저장 확인(beforeunload)을 사용자가 취소해도 이전 계정 화면이 남지 않는다. 언마운트로 시작된 마지막 편집 저장은 계정 저장소가 진행 중·직렬 저장을 마치고 닫힐 때까지 최대 3초 기다린 뒤 이동한다(정리 실패·초과 시에도 화면은 닫힌 채 이동). 상태·이탈 순서는 `useSessionEnd`, 조립은 `ProtectedShell`(app), 렌더는 `SessionGate`(features)가 맡는다.
+- **세션 쿠키 이름(PR #4 리뷰 P2)**: 기본 이름 `sb-<호스트 첫 부분>-auth-token` 은 같은 호스트의 다른 Supabase 프로젝트(다른 포트)와 겹친다(쿠키는 포트로 구분되지 않음). `cookieOptions.name = "sb-dicom-annotator-auth-token"` 으로 고정하고 로그아웃은 이 키·청크(`.N`)·`-code-verifier` 만 지운다. 서비스 오류로 signOut 이 실패해도 이 앱 쿠키는 지운다.

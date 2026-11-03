@@ -12,6 +12,23 @@
 - 미검증: 실제 1시간 만료 경과 후 토큰 갱신, Chromium 외 브라우저, 클라우드·HTTPS 프록시, 실제 임상·대용량 환경. 쿠키 제거·위조·폐기 검증은 실제 만료 갱신 검증을 대신하지 않는다.
 - 사전 검수 후 PR을 열고 별도 Codex 리뷰어가 현재 head 전체 merge diff를 검토한다. main 병합은 사용자 통제이며 이 기록은 병합 허가가 아니다.
 
+### PR #4 첫 독립 리뷰 — 수정 필요
+
+- PR: https://github.com/jinyu74/sample-cornerstone/pull/4, 검토 head `d56555bf1ea691c39c70f94432d4eeeec9a0f4d4`. 별도 패널 Codex가 `$review-agent`로 merge-base부터 전체96파일과 관련 호출·테스트를 읽었다.
+- P1: 미저장 beforeunload 확인으로 세션 무효화 navigation을 취소하면 이전 계정 보호 화면을 계속 사용할 수 있고, `done=true`로 이후 검사도 중단된다. 이동 성공 여부와 별개로 보호 콘텐츠를 차단해야 한다.
+- P2: 로그아웃이 모든 `sb-` 쿠키를 지워 같은 호스트의 다른 Supabase 프로젝트 세션까지 만료시킨다. 현재 프로젝트 키와 청크만 지워야 한다.
+- 리뷰어는 실제 소스 메모리 내 검증으로 두 경로를 재현했다. 실제 브라우저 확인창 검증과 전체 검사를 리뷰어가 수행한 것은 아니다.
+- 감독이 지적을 확인하고 실패 회귀부터 수정하도록 Opus에 지시했다. 결과 댓글: https://github.com/jinyu74/sample-cornerstone/pull/4#issuecomment-6612520822 . 새 head 재검토 전까지 수정 필요 상태다.
+
+### PR #4 지적 수정·감독 재검증
+
+- P1: `SessionGate`가 보호 subtree를 먼저 치우고 로그인 안내만 남긴다. 상태·이탈 순서는 `useSessionEnd`, 앱 조립은 `ProtectedShell`로 분리했다. 계정 저장소의 진행 중·직렬 쓰기 종료를 최대3초 기다린 뒤 이동하며, 정리 실패/상한 초과/이동 취소 후에도 보호 콘텐츠는 돌아오지 않는다.
+- P2: 서버·Proxy가 앱 전용 `sb-dicom-annotator-auth-token`을 동일하게 사용하고 로그아웃은 이 키·청크·코드 검증자만 지운다. 다른 프로젝트 쿠키는 보존하며 Auth 서비스 오류 경계도 검증한다.
+- 감독 독립 Red: P1 통합3실패/기존388통과(`codex-review-p1-red.log`), P2 실제 라우트3실패(`codex-review-p2-red.log`). Opus의 구 프로덕션 빌드 브라우저 Red에서 `[dialog] beforeunload → dismiss` 후 viewport1개가 남는 실패도 직접 로그로 확인했다(`red-p1-browser.log`). 새 안내 Story3개 Red도 확인했다. 정리 오류·기본3초 경계2건은 기존 구현의 특성화 테스트로 추가됐으며 Red 근거로 세지 않는다.
+- 감독 독립 Green(`.local/issue3/codex-pr4-*.log`): 단위·통합417/417, Chromium Story102/102, 타입·lint(경고0)·format, 앱·Storybook 빌드, 프로덕션 전체E2E48/48 통과. Opus의 개발·프로덕션 각각48/48 로그도 직접 확인했다.
+- 추가 QA: 데스크톱1440×1000·모바일390×844에서 실제 로컬 로그인 후 세션 쿠키를 제거하고 로그인 navigation을 정지시켰다. 이전 목록은 없어지고 세션 종료 안내만 남았으며 화면 캡처를 직접 확인했다(`/tmp/herdr-session-ended-{desktop,mobile}.png`). 가로 넘침·pageerror·예상 밖 console error 없음. `/auth/session`의401 및 이에 따른 브라우저 콘솔의 네트워크 오류는 의도한 세션 거부 응답이다. QA 도구의 Next route announcer 선택자 중복·진행 중 navigation 대기는 선택자 구체화와 CDP stopLoading으로 해결했으며 앱 결함으로 세지 않았다.
+- 미검증 항목은 동일하다. 수정한 새 head를 PR에 반영한 뒤 별도 리뷰어가 전체 merge diff를 재검토하며, 사용자 요청 전에는 병합하지 않는다.
+
 ## 1차: 개발 기반과 슬라이스 정렬
 
 - Codex가 최초 테스트 15개의 `not implemented` 실패를 직접 실행해 확인했다.

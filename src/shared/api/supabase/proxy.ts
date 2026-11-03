@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { readSupabaseServerEnv } from "@/shared/config/supabase-env";
 
+import { AUTH_COOKIE_NAME } from "./auth-cookie";
+
 export const NO_STORE =
   "private, no-cache, no-store, must-revalidate, max-age=0";
 
@@ -24,6 +26,7 @@ export async function refreshSession(
   const { url, publishableKey } = readSupabaseServerEnv();
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, publishableKey, {
+    cookieOptions: { name: AUTH_COOKIE_NAME },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(list, headers) {

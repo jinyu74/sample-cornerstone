@@ -32,11 +32,20 @@ const registry = createRetainedRegistry<string, UserStores>({
       work: createIndexedDbWorkStore({ databaseName }),
     };
   },
-  dispose(stores) {
+  async dispose(stores) {
     stores.dicom.closeWhenIdle();
     stores.work.closeWhenIdle();
+    await Promise.all([stores.dicom.whenClosed(), stores.work.whenClosed()]);
   },
 });
+
+/**
+ * 계정 저장소가 마지막 보유자 해제 뒤 진행 중·직렬 저장을 마치고 닫힐 때까지 기다린다.
+ * 세션이 끝나 보호 화면을 치운 뒤 문서를 이동하기 전에 쓴다(저장 중 이동으로 쓰기가 끊기지 않게).
+ */
+export function waitForUserStorageReleased(userId: string): Promise<void> {
+  return registry.whenReleased(userId);
+}
 
 /**
  * 서버가 검증한 계정 ID 의 브라우저 저장소만 하위 화면에 제공한다.

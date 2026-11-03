@@ -38,10 +38,31 @@ test.describe("로그인·세션", () => {
     await page.reload();
     await expect(page).toHaveURL(VIEWER);
     await expect(page.getByRole("button", { name: "로그아웃" })).toBeVisible();
+    // 같은 호스트의 다른 Supabase 프로젝트(다른 포트) 세션 쿠키는 로그아웃해도 남아야 한다
+    const host = new URL(page.url()).hostname;
+    await page.context().addCookies(
+      ["sb-127-auth-token", "sb-otherproject-auth-token"].map((name) => ({
+        name,
+        value: "other-project-session",
+        domain: host,
+        path: "/",
+      })),
+    );
 
     await logout(page);
+    const remaining = (await page.context().cookies()).map((c) => c.name);
+    expect(remaining).toEqual(
+      expect.arrayContaining([
+        "sb-127-auth-token",
+        "sb-otherproject-auth-token",
+      ]),
+    );
     await expect(page.getByRole("status")).toHaveText("로그아웃했습니다.");
-    expect(await authCookies(page.context())).toHaveLength(0);
+    expect(
+      (await authCookies(page.context())).filter((c) =>
+        c.name.startsWith("sb-dicom-annotator-auth-token"),
+      ),
+    ).toHaveLength(0);
     await page.goto(VIEWER);
     await expect(page).toHaveURL(/\/login\?next=/);
     await expect(viewport(page)).toHaveCount(0);

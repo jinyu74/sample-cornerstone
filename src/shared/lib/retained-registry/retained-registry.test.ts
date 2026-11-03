@@ -95,4 +95,30 @@ describe("createRetainedRegistry: 키별 공유 자원과 지연 정리", () => 
     expect(b.disposed).toBe(false);
     releaseB();
   });
+
+  it("whenReleased: 마지막 해제 후 정리(비동기 포함)가 끝나야 끝나고, 자원이 없으면 바로 끝난다", async () => {
+    let finishDispose!: () => void;
+    const registry = createRetainedRegistry<string, Resource>({
+      create: (key) => ({ key, disposed: false }),
+      dispose: (resource) =>
+        new Promise<void>((resolve) => {
+          finishDispose = () => {
+            resource.disposed = true;
+            resolve();
+          };
+        }),
+    });
+    await expect(registry.whenReleased("none")).resolves.toBeUndefined();
+
+    const resource = registry.get("a");
+    registry.retain("a")();
+    let released = false;
+    void registry.whenReleased("a").then(() => (released = true));
+    await vi.runAllTimersAsync();
+    expect(released).toBe(false);
+    finishDispose();
+    await vi.runAllTimersAsync();
+    expect(released).toBe(true);
+    expect(resource.disposed).toBe(true);
+  });
 });

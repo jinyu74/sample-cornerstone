@@ -34,7 +34,7 @@
 
 - 범위: 로그인/로그아웃, 서버 세션 검증(Proxy 낙관적 검사 + 페이지·Route Handler 의 getUser), 안전한 복귀 경로, 열린 화면 재검증·다른 탭 로그아웃, 계정별 IndexedDB 경계, 로컬 계정 준비 스크립트. 서버 영상 저장·메타데이터/결과 DB 는 후속 이슈(이번 단계는 서버 저장 전환 완료가 아님).
 - 도구: Supabase CLI 2.122.0(mise), `@supabase/supabase-js` 2.118.0, `@supabase/ssr` 0.12.7(정확 고정). 전용 로컬 스택 `dicom-annotator`(포트 553xx).
-- 검사(로그 `.local/issue3/final-*.log`): typecheck·lint(경고 0)·format, unit 388, Story 99, build, build-storybook, E2E dev 47/47, E2E prod 47/47(직전 빌드), 브라우저 번들에 Supabase 키·URL 없음.
-- Codex 독립 재실행: 단위·통합388, Story99, 타입·lint·format·앱/Storybook 빌드, 개발/프로덕션 E2E47/47 및 데스크톱·모바일 로그인 QA 통과.
+- 검사(로그 `.local/issue3/final-*.log`): typecheck·lint(경고 0)·format, unit 417, Story 102, build, build-storybook, E2E dev 48/48, E2E prod 48/48(직전 빌드), 브라우저 번들에 Supabase 키·URL 없음.
+- Codex 독립 재실행: 단위·통합417, Story102, 타입·lint·format·앱/Storybook 빌드, 개발/프로덕션 E2E48/48 및 데스크톱·모바일 로그인 QA 통과.
 - 남은 항목: PR 이후 리뷰어 검토, 사용자 병합 결정.
 - 미검증: 실제 만료 시간 경과에 따른 토큰 갱신(로컬 jwt_expiry 3600초, 쿠키 제거·위조·폐기로 대체 검증), Chromium 외 브라우저, 클라우드 Supabase·HTTPS 프록시 환경.

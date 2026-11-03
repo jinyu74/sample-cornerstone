@@ -10,6 +10,8 @@ export interface ConnectionLifecycle {
    * 작업이 비면 다음 매크로태스크까지 기다려 같은 마이크로태스크 체인의 후속 작업을 받아 준다.
    */
   closeWhenIdle(): void;
+  /** 실제로 닫힌 뒤(진행 중·후속 작업 완료 후) 끝나는 Promise */
+  whenClosed(): Promise<void>;
 }
 
 export function createConnectionLifecycle(
@@ -18,11 +20,14 @@ export function createConnectionLifecycle(
   let state: "open" | "draining" | "closed" = "open";
   let inflight = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let markClosed!: () => void;
+  const closedPromise = new Promise<void>((resolve) => (markClosed = resolve));
 
   function finish() {
     clearTimeout(timer);
     state = "closed";
     onClose();
+    markClosed();
   }
 
   function scheduleIdleClose() {
@@ -54,5 +59,6 @@ export function createConnectionLifecycle(
       state = "draining";
       if (inflight === 0) scheduleIdleClose();
     },
+    whenClosed: () => closedPromise,
   };
 }
