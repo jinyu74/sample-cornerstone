@@ -29,6 +29,22 @@
 - 추가 QA: 데스크톱1440×1000·모바일390×844에서 실제 로컬 로그인 후 세션 쿠키를 제거하고 로그인 navigation을 정지시켰다. 이전 목록은 없어지고 세션 종료 안내만 남았으며 화면 캡처를 직접 확인했다(`/tmp/herdr-session-ended-{desktop,mobile}.png`). 가로 넘침·pageerror·예상 밖 console error 없음. `/auth/session`의401 및 이에 따른 브라우저 콘솔의 네트워크 오류는 의도한 세션 거부 응답이다. QA 도구의 Next route announcer 선택자 중복·진행 중 navigation 대기는 선택자 구체화와 CDP stopLoading으로 해결했으며 앱 결함으로 세지 않았다.
 - 미검증 항목은 동일하다. 수정한 새 head를 PR에 반영한 뒤 별도 리뷰어가 전체 merge diff를 재검토하며, 사용자 요청 전에는 병합하지 않는다.
 
+### PR #4 새 head 재리뷰 — 입력 중 메모 유실 수정 필요
+
+- 검토 head `e950ac00356bc67e94c5023bb273b362a2a8bb8e`, 전체107파일. 별도 리뷰어가 이전 P1/P2 해결과 직렬 저장→연결 종료→레지스트리 해제를 확인했다.
+- 신규 P2: 메모 입력에 포커스를 둔 채 세션 무효화되면 Gate가 NoteField의 blur 없이 subtree를 제거해 draft를 유실한다. 종료 저장은 이전 모델 값만 저장한다. 보호 화면 차단을 유지하면서 입력 중 메모를 원래 계정 모델에 먼저 전달해야 한다.
+- 리뷰어가 실제 React/jsdom에서 정상 blur는 반영되고 세션 무효화는 미반영인 차이를 재현했다. 실제 브라우저 재현과 저장 복원은 Opus가 먼저 실패 테스트부터 추가한다. 감독은 이 경로를 코드에서 확인하고 수정 지시했다. 해결 후 전체 검증·새 head 재리뷰 전까지 수정 필요 상태다.
+
+### 입력 draft·모바일 Portal 수정 검증
+
+- 종료 상태를 기록하기 전에 React 트리에서 포커스를 받은 입력을 blur해 기존 편집기의 검증·commit 경로를 동기로 실행한다. 그 뒤 보호 콘텐츠 차단과 계정 저장소 종료 대기를 수행한다. Portal도 React 포커스 이벤트로 포착하며 auth가 편집 기능을 직접 참조하지 않는다.
+- 감독이 `session-draft-commit.review.test.tsx`에서 실제 편집기·작업 hook·계정 저장소의 메모 유실 Red를 독립 확인했다. 첫 최소 수정안의 DOM `root.contains`는 모바일 Sheet Portal을 누락하므로 감독이 createPortal 케이스를 추가해 일반 메모·잘못된 좌표2통과/Portal 메모1실패를 재현했다(`codex-portal-draft-red.log`). 기대값은 유지했다.
+- 실제 브라우저도 desktop/모바일 모두 이전 빌드에서 기대 메모 대신 빈값으로 복원되는 Red를 확인했다(`red-draft-browser.log`, `red-portal-browser.log`). 테스트 작성 중 textbox 선택자 중복과 Sheet 선택 시 닫힘 절차 오류는 검증 실패와 구분해 수정했다.
+- 전체 prod 실행에서 기존 `길이` 부분 매칭이 도구·결과·숨김 버튼3개에 걸린 실패가 있었다. 감독이 해당 파일 도구 버튼9개에 `exact:true`만 추가했다. 기대값·시나리오·앱 소스는 그대로이며 이후 prod/dev 전체50/50이 통과했다.
+- 최종 감독 독립 실행(`.local/issue3/codex-final-portal-*.log`): 단위·통합422/422, Chromium Story102/102, 타입·lint(경고0)·format·Storybook 빌드, 변경된 인증 프로덕션 브라우저4/4(설정 포함). Opus의 최신 앱 빌드와 전체 prod/dev 각각50/50 및 나머지 품질 검사 로그를 직접 확인했다. 이전 감독 전체prod48 결과와 최신 변경 회귀 검증을 혼동하지 않는다.
+- 최종 브라우저 QA: `127.0.0.1:3000` 데스크톱1440×1000/모바일390×844에서 로그인→목록→로그아웃, 세션 제거→navigation 정지→보호 콘텐츠 제거·안내 유지 확인. 최신 캡처도 직접 읽었다(`/tmp/herdr-list-{desktop,mobile}.png`, `/tmp/herdr-session-ended-{desktop,mobile}.png`). 정상 흐름 console/page error0, 거부 흐름은 의도한 `/auth/session`401만 있고 예상 밖 오류·가로 넘침 없음. Browser plugin not available로 프로젝트 Playwright를 사용했다.
+- 수정한 새 head를 다시 독립 리뷰한다. 기존 실제1시간 만료·다른 브라우저·클라우드/HTTPS 검증 공백은 유지하며 전체 서버 저장 전환 완료나 병합 허가로 표현하지 않는다.
+
 ## 1차: 개발 기반과 슬라이스 정렬
 
 - Codex가 최초 테스트 15개의 `not implemented` 실패를 직접 실행해 확인했다.

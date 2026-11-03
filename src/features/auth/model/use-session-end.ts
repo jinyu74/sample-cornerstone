@@ -21,11 +21,17 @@ export interface UseSessionEndOptions {
   beforeLeave?: () => Promise<void>;
   navigate: (href: string) => void;
   leaveTimeoutMs?: number;
+  /**
+   * 종료 상태를 기록(보호 화면 제거)하기 직전에 동기 실행한다.
+   * 입력 중인 값을 기존 commit 경로로 그 계정 모델에 먼저 반영하는 데 쓴다.
+   */
+  beforeEnd?: () => void;
 }
 
 /**
  * 세션 종료 상태와 이탈 순서를 관리한다.
- * 1) 세션 무효(만료·계정 변경·다른 탭 로그아웃)를 감지하면 종료 상태를 기록한다(되돌리지 않는다).
+ * 1) 세션 무효(만료·계정 변경·다른 탭 로그아웃)를 감지하면 beforeEnd(입력 중인 값 반영)를 동기 실행한 뒤
+ *    종료 상태를 기록한다(되돌리지 않는다).
  *    화면은 이 상태로 보호 콘텐츠를 즉시 치운다(fail-closed, 이동 성공 여부와 무관).
  * 2) 보호 콘텐츠가 언마운트된 커밋 뒤에 정리(beforeLeave)를 기다린다. 최대 leaveTimeoutMs.
  *    정리가 실패해도 종료 상태는 유지되며 바로 이동한다.
@@ -37,6 +43,7 @@ export function useSessionEnd({
   beforeLeave,
   navigate,
   leaveTimeoutMs = LEAVE_TIMEOUT_MS,
+  beforeEnd,
 }: UseSessionEndOptions): SessionEnd | undefined {
   const [ended, setEnded] = useState<SessionEnd>();
 
@@ -44,6 +51,11 @@ export function useSessionEnd({
     userId,
     check,
     onInvalid: (reason) => {
+      try {
+        beforeEnd?.();
+      } catch {
+        // 반영에 실패해도 보호 화면 차단은 계속한다(fail-closed)
+      }
       const here = `${window.location.pathname}${window.location.search}`;
       setEnded({
         reason,

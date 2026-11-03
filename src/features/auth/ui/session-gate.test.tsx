@@ -163,6 +163,54 @@ describe("SessionGate: 세션이 무효가 되면 보호 화면을 먼저 치우
     }
   });
 
+  it("보호 화면 안에서 포커스를 가진 입력을 치우기 전에 blur 해 기존 commit 경로를 먼저 실행한다", async () => {
+    const order: string[] = [];
+    function Protected() {
+      useEffect(() => () => void order.push("protected-cleanup"), []);
+      return (
+        <input
+          aria-label="메모"
+          defaultValue="입력 중"
+          onBlur={(event) => order.push(`commit ${event.currentTarget.value}`)}
+        />
+      );
+    }
+    render(
+      <SessionUserProvider user={{ id: A, email: "a@example.test" }}>
+        <SessionGate
+          check={async () => ({ status: "unauthenticated" })}
+          navigate={() => undefined}
+        >
+          <Protected />
+        </SessionGate>
+        <input aria-label="보호 화면 밖" />
+      </SessionUserProvider>,
+    );
+    screen.getByLabelText("메모").focus();
+    await focus();
+    expect(order).toEqual(["commit 입력 중", "protected-cleanup"]);
+    expect(screen.queryByLabelText("메모")).toBeNull();
+  });
+
+  it("보호 화면 밖에 포커스가 있으면 건드리지 않는다", async () => {
+    const outsideBlur = vi.fn();
+    render(
+      <SessionUserProvider user={{ id: A, email: "a@example.test" }}>
+        <SessionGate
+          check={async () => ({ status: "unauthenticated" })}
+          navigate={() => undefined}
+        >
+          <p>보호된 영상</p>
+        </SessionGate>
+        <input aria-label="보호 화면 밖" onBlur={outsideBlur} />
+      </SessionUserProvider>,
+    );
+    screen.getByLabelText("보호 화면 밖").focus();
+    await focus();
+    expect(outsideBlur).not.toHaveBeenCalled();
+    expect(screen.queryByText("보호된 영상")).toBeNull();
+  });
+
   it("이동이 일어나지 않아도(취소) 보호 화면이 되살아나지 않는다", async () => {
     const { navigate } = setup({ result: { status: "unauthenticated" } });
     await focus();

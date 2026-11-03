@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 import { UID } from "../fixtures/dicom/scenarios";
 
@@ -60,4 +60,88 @@ test("세션이 무효가 된 뒤 뷰어의 미저장 확인을 취소해도 보
     { timeout: 30_000 },
   );
   await expect(results(page)).toHaveCount(1);
+});
+
+test("메모를 입력하는 중(포커스 유지) 세션이 끝나도 입력한 메모가 저장돼 다시 로그인하면 복원된다", async ({
+  page,
+}) => {
+  await login(page, "a");
+  await importGroups(page, "single");
+  await openSeries(page, UID.studyA, UID.seriesSingle);
+  page.on("dialog", (dialog) => void dialog.dismiss());
+
+  await page.getByRole("button", { name: "길이" }).click();
+  await drag(page, [0.35, 0.5], [0.65, 0.5]);
+  await expect(results(page)).toHaveCount(1);
+  await results(page).first().click();
+  const note = page.getByRole("textbox", { name: "메모" });
+  await note.fill("세션 종료 직전 메모");
+  await expect(note).toBeFocused();
+
+  // 입력 칸 포커스를 유지한 채 세션이 사라지고 창 포커스로 재검증된다
+  await page.context().clearCookies();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(viewport(page)).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.getByRole("textbox", { name: "메모" })).toHaveCount(0);
+
+  await login(page, "a", `/studies/${UID.studyA}?series=${UID.seriesSingle}`);
+  await expect(viewport(page)).toHaveAttribute(
+    "data-render-state",
+    "rendered",
+    { timeout: 30_000 },
+  );
+  await results(page).first().click();
+  await expect(page.getByRole("textbox", { name: "메모" })).toHaveValue(
+    "세션 종료 직전 메모",
+  );
+});
+
+/** 좁은 화면: 결과를 선택하면 영상으로 이동하며 Sheet 가 닫히므로, 선택 후 다시 열어 편집기를 쓴다 */
+async function openSelectedResultSheet(page: Page) {
+  await page.getByRole("button", { name: "작업 결과 열기" }).click();
+  await page
+    .getByRole("dialog", { name: "작업 결과" })
+    .getByRole("list", { name: "작업 결과" })
+    .getByRole("listitem")
+    .first()
+    .click();
+  await expect(page.getByRole("dialog", { name: "작업 결과" })).toHaveCount(0);
+  await page.getByRole("button", { name: "작업 결과 열기" }).click();
+  const sheet = page.getByRole("dialog", { name: "작업 결과" });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+test("모바일 결과 Sheet(Portal)에서 메모를 입력하는 중 세션이 끝나도 메모가 저장돼 다시 로그인하면 복원된다", async ({
+  page,
+}) => {
+  await login(page, "a");
+  await importGroups(page, "single");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSeries(page, UID.studyA, UID.seriesSingle);
+  page.on("dialog", (dialog) => void dialog.dismiss());
+
+  await page.getByRole("button", { name: "길이" }).click();
+  await drag(page, [0.35, 0.5], [0.65, 0.5]);
+  const sheet = await openSelectedResultSheet(page);
+  const note = sheet.getByRole("textbox", { name: "메모" });
+  await note.fill("모바일 시트 메모");
+  await expect(note).toBeFocused();
+
+  // Sheet 의 메모 입력 칸에 포커스를 유지한 채 세션이 사라지고 창 포커스로 재검증된다
+  await page.context().clearCookies();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(viewport(page)).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.getByRole("textbox", { name: "메모" })).toHaveCount(0);
+
+  await login(page, "a", `/studies/${UID.studyA}?series=${UID.seriesSingle}`);
+  await expect(viewport(page)).toHaveAttribute(
+    "data-render-state",
+    "rendered",
+    { timeout: 30_000 },
+  );
+  const reopened = await openSelectedResultSheet(page);
+  await expect(reopened.getByRole("textbox", { name: "메모" })).toHaveValue(
+    "모바일 시트 메모",
+  );
 });

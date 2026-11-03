@@ -15,6 +15,8 @@
 - PR #4 https://github.com/jinyu74/sample-cornerstone/pull/4 를 열었다(head `d56555bf1ea691c39c70f94432d4eeeec9a0f4d4`). 독립 전체96파일 리뷰에서 P1 세션 무효 이동 취소 시 보호 콘텐츠 지속, P2 다른 프로젝트 쿠키 삭제가 발견돼 Opus가 실패 회귀부터 수정 중이다. 두 건을 수정하고 감독이 단위417·Story102·타입/lint/format·앱/Storybook 빌드·프로덕션48/48 및 화면 QA를 통과했다. Opus 개발48/48도 확인했다. 상세와 댓글은 `docs/reviews.md`. 다음은 수정 커밋 반영·새 head 독립 리뷰·결과 댓글이며 사용자 명시적 병합 요청 전에는 머지하지 않는다.
 - 아래 기존 1~3차 진행·사용량·서버 PID는 역사 기록이다. 현재 상태는 이 절과 `docs/reviews.md`, 실시간 프로세스·감시기 상태를 우선한다.
 
+- 최신 재리뷰: head `e950ac00356bc67e94c5023bb273b362a2a8bb8e`, 전체107파일에서 이전2건 해결 확인, 신규 P2 입력 중 메모 draft 유실1건. 세션 Gate가 blur 없이 NoteField를 제거해 입력이 모델에 반영되지 않는다. 해당 유실과 모바일 Sheet Portal 누락을 Red부터 수정했고, 감독 단위422·Story102·타입/lint/format/Storybuild·인증 브라우저4 및 Opus 전체prod/dev 각각50/50·앱 빌드가 통과했다. 최신 수정 커밋을 반영한 뒤 별도 리뷰어의 새 head 재검토가 남아 있다. 전체 앱·테스트 선행 규칙과 사용자 병합 통제는 유지한다.
+
 ## 목표와 사용자 지침
 
 - 프로젝트: 로컬 전용 DICOM 측정·메모·장기/병변 라벨링 앱. 전체 범위는 `docs/claude-dicom-task.md`.
