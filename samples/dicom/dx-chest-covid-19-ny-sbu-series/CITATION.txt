@@ -1,0 +1,8 @@
+Chest X-ray — Stony Brook COVID-19 Study
+Source collection: Stony Brook University COVID-19 Positive Cases (COVID-19-NY-SBU)
+License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+Data citation:
+Saltz, J., Saltz, M., Prasanna, P., Moffitt, R., Hajagos, J., Bremer, E., Balsamo, J., & Kurc, T. (2021). Stony Brook University COVID-19 Positive Cases [Data set]. The Cancer Imaging Archive. https://doi.org/10.7937/TCIA.BBAG-2923
+
+Redistributed by Saga IT (saga-it.com/dicom/samples) under the Creative Commons Attribution license above. Sourced from the NCI Imaging Data Commons (portal.imaging.datacommons.cancer.gov).

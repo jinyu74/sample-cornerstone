@@ -1,0 +1,8 @@
+Chest CT — LIDC-IDRI Lung Nodule Study
+Source collection: LIDC-IDRI (Lung Image Database Consortium)
+License: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+
+Data citation:
+Armato III, S. G., McLennan, G., Bidaut, L., McNitt-Gray, M. F., Meyer, C. R., Reeves, A. P., Zhao, B., Aberle, D. R., Henschke, C. I., Hoffman, E. A., Kazerooni, E. A., MacMahon, H., Van Beek, E. J. R., Yankelevitz, D., et al. (2015). Data From LIDC-IDRI [Data set]. The Cancer Imaging Archive. https://doi.org/10.7937/K9/TCIA.2015.LO9QL9SX
+
+Redistributed by Saga IT (saga-it.com/dicom/samples) under the Creative Commons Attribution license above. Sourced from the NCI Imaging Data Commons (portal.imaging.datacommons.cancer.gov).

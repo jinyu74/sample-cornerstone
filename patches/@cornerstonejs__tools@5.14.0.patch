@@ -1,0 +1,20 @@
+diff --git a/dist/esm/utilities/registerComputeWorker.js b/dist/esm/utilities/registerComputeWorker.js
+index c1ee99b1e88cc130bb81d3bc8c0d277c95ec1f6f..df3fe9b958203f4b2908965f75b158c99d78dadb 100644
+--- a/dist/esm/utilities/registerComputeWorker.js
++++ b/dist/esm/utilities/registerComputeWorker.js
+@@ -6,11 +6,11 @@ export function registerComputeWorker() {
+         return;
+     }
+     registered = true;
++    // dicom-annotator 패치: compute worker 는 자신을 다시 import 하는 그래프(computeWorker → segmentation →
++    // registerComputeWorker → computeWorker)라 Next 16 Turbopack 프로덕션 빌드가 멈춘다. 이 앱은 segmentation
++    // 통계 worker 를 쓰지 않으므로 번들러가 worker 진입점을 따라가지 않게 하고, 사용하면 명시적 오류를 낸다.
+     const workerFn = () => {
+-        return new Worker(new URL('../workers/computeWorker.js', import.meta.url), {
+-            name: 'compute',
+-            type: 'module',
+-        });
++        throw new Error('compute worker 는 이 앱에서 사용하지 않습니다(segmentation 통계 미지원)');
+     };
+     const workerManager = getWebWorkerManager();
+     const config = getConfig();

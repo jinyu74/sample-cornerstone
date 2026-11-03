@@ -1,0 +1,8 @@
+Chest X-ray — VAREPOP-APOLLO Oncology Study
+Source collection: VA Research Precision Oncology Program — APOLLO (VAREPOP-APOLLO)
+License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+
+Data citation:
+The Research for Precision Oncology Program and the Applied Proteogenomics Organizational Learning and Outcomes (APOLLO) Research Network. (2024). VA Research Precision Oncology Program - APOLLO (VAREPOP-APOLLO) (Version 3) [dataset]. The Cancer Imaging Archive. https://doi.org/10.7937/ghkn-md15
+
+Redistributed by Saga IT (saga-it.com/dicom/samples) under the Creative Commons Attribution license above. Sourced from the NCI Imaging Data Commons (portal.imaging.datacommons.cancer.gov).

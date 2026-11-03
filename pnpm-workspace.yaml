@@ -1,0 +1,10 @@
+allowBuilds:
+  core-js-pure: false
+  esbuild: true
+minimumReleaseAgeExclude:
+  - "@boundaries/config@1.0.0"
+  - "@boundaries/elements@3.3.1"
+  - "@boundaries/policies@1.0.0"
+  - eslint-plugin-boundaries@7.4.1
+patchedDependencies:
+  "@cornerstonejs/tools@5.14.0": patches/@cornerstonejs__tools@5.14.0.patch

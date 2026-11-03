@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+storybook-static
+playwright-report
+test-results
+coverage
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+tests/e2e/.fixtures
+.local/
+.DS_Store
+*.log
+
+# 다운로드 원본은 로컬에서 유지하고 출처 파일만 버전 관리한다.
+samples/dicom/**
+!samples/dicom/**/
+!samples/dicom/**/CITATION.txt
