@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { UID } from "../fixtures/dicom/scenarios";
 
+import { AUTH_STATE } from "./auth-paths";
 import {
   brightness,
   canvasBrightness,
@@ -265,7 +266,8 @@ test.describe("측정·라벨·저장·복원", () => {
       studyInstanceUid: UID.studyA,
     });
 
-    const fresh = await browser.newContext();
+    // 같은 계정으로 로그인했지만 브라우저 저장소(IndexedDB)가 비어 있는 새 브라우저
+    const fresh = await browser.newContext({ storageState: AUTH_STATE });
     const other = await fresh.newPage();
     await importGroups(other, "stack", "uncalibrated");
     await openSeries(other, UID.studyA, UID.seriesStack);

@@ -29,7 +29,10 @@ async function importGroup(page: Page, group: string) {
   const dir = path.join(FIXTURES, group);
   const files = (await fs.readdir(dir)).map((name) => path.join(dir, name));
   await page.getByTestId("dicom-file-input").setInputFiles(files);
-  await expect(page.getByRole("status")).toContainText("가져오기 완료");
+  // 목록 다시 읽기("검사 목록을 불러오는 중")도 role=status 이므로 가져오기 결과 상태로 좁힌다.
+  await expect(
+    page.getByRole("status").filter({ hasText: "가져오기 완료" }),
+  ).toBeVisible();
 }
 
 async function openSeries(page: Page, studyUid: string, seriesUid: string) {

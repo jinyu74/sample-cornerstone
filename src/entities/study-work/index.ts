@@ -1,6 +1,8 @@
-export { getBrowserWorkStore } from "./api/browser-store";
 export { createIndexedDbWorkStore } from "./api/indexed-db-work-store";
-export type { IndexedDbWorkStoreOptions } from "./api/indexed-db-work-store";
+export type {
+  IndexedDbWorkStore,
+  IndexedDbWorkStoreOptions,
+} from "./api/indexed-db-work-store";
 export { WorkStoreError } from "./api/types";
 export type { StudyWorkStore, WorkStoreErrorCode } from "./api/types";
 export {
@@ -51,3 +53,4 @@ export type {
 } from "./ui/annotation-list";
 export { useWorkStatuses } from "./model/use-work-statuses";
 export type { WorkStatusesState } from "./model/use-work-statuses";
+export { StudyWorkStoreProvider, useStudyWorkStore } from "./api/store-context";

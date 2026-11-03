@@ -1,4 +1,8 @@
-import { requestToPromise, transactionDone } from "@/shared/lib/indexed-db";
+import {
+  createConnectionLifecycle,
+  requestToPromise,
+  transactionDone,
+} from "@/shared/lib/indexed-db";
 import { APP_DATABASE_NAME, openAppDatabase, STORE } from "@/shared/storage";
 
 import type { StudyWork } from "../model/types";
@@ -11,17 +15,25 @@ export interface IndexedDbWorkStoreOptions {
   indexedDB?: IDBFactory | null;
 }
 
+/** IndexedDB 구현. 계정 저장소 정리 시 진행 중 저장이 끝난 뒤 닫을 수 있다. */
+export interface IndexedDbWorkStore extends StudyWorkStore {
+  /** 진행 중 작업과 그 직후 이어지는 작업(직렬 저장 flush)이 끝난 뒤 닫는다 */
+  closeWhenIdle(): void;
+}
+
 export function createIndexedDbWorkStore(
   options: IndexedDbWorkStoreOptions = {},
-): StudyWorkStore {
+): IndexedDbWorkStore {
   const factory =
     options.indexedDB === undefined ? globalThis.indexedDB : options.indexedDB;
   const databaseName = options.databaseName ?? APP_DATABASE_NAME;
   let opening: Promise<IDBDatabase> | undefined;
-  let closed = false;
+  const lifecycle = createConnectionLifecycle(() => {
+    void opening?.then((db) => db.close()).catch(() => undefined);
+  });
 
   function database(): Promise<IDBDatabase> {
-    if (closed)
+    if (lifecycle.closed)
       return Promise.reject(
         new WorkStoreError("unavailable", "저장소가 닫혔습니다"),
       );
@@ -47,70 +59,79 @@ export function createIndexedDbWorkStore(
   }
 
   return {
-    async getWork(studyInstanceUid) {
-      const db = await database();
-      try {
-        return await requestToPromise<StudyWork | undefined>(
-          db
-            .transaction(STORE.works, "readonly")
-            .objectStore(STORE.works)
-            .get(studyInstanceUid),
-        );
-      } catch (error) {
-        throw toWorkStoreError(error);
-      }
-    },
-
-    async listWorks() {
-      const db = await database();
-      try {
-        return await requestToPromise<StudyWork[]>(
-          db
-            .transaction(STORE.works, "readonly")
-            .objectStore(STORE.works)
-            .getAll(),
-        );
-      } catch (error) {
-        throw toWorkStoreError(error);
-      }
-    },
-
-    async saveWork(work) {
-      const db = await database();
-      const transaction = db.transaction(STORE.works, "readwrite");
-      const done = transactionDone(transaction);
-      const store = transaction.objectStore(STORE.works);
-      let stale: WorkStoreError | undefined;
-      try {
-        // 같은 트랜잭션 안에서 저장된 revision 과 비교해 오래된 쓰기를 거부한다.
-        const current = await requestToPromise<StudyWork | undefined>(
-          store.get(work.studyInstanceUid),
-        );
-        if (current && current.revision > work.revision) {
-          stale = new WorkStoreError(
-            "stale",
-            `더 최신 결과(revision ${current.revision})가 이미 저장되어 있어 revision ${work.revision} 을 저장하지 않았습니다`,
+    getWork(studyInstanceUid) {
+      return lifecycle.track(async () => {
+        const db = await database();
+        try {
+          return await requestToPromise<StudyWork | undefined>(
+            db
+              .transaction(STORE.works, "readonly")
+              .objectStore(STORE.works)
+              .get(studyInstanceUid),
           );
-          transaction.abort();
-        } else {
-          store.put(work);
+        } catch (error) {
+          throw toWorkStoreError(error);
         }
-      } catch (error) {
-        transaction.abort();
-        await done.catch(() => undefined);
-        throw toWorkStoreError(error);
-      }
-      try {
-        await done;
-      } catch (error) {
-        throw stale ?? toWorkStoreError(error);
-      }
-      if (stale) throw stale;
+      });
+    },
+
+    listWorks() {
+      return lifecycle.track(async () => {
+        const db = await database();
+        try {
+          return await requestToPromise<StudyWork[]>(
+            db
+              .transaction(STORE.works, "readonly")
+              .objectStore(STORE.works)
+              .getAll(),
+          );
+        } catch (error) {
+          throw toWorkStoreError(error);
+        }
+      });
+    },
+
+    saveWork(work) {
+      return lifecycle.track(async () => {
+        const db = await database();
+        const transaction = db.transaction(STORE.works, "readwrite");
+        const done = transactionDone(transaction);
+        const store = transaction.objectStore(STORE.works);
+        let stale: WorkStoreError | undefined;
+        try {
+          // 같은 트랜잭션 안에서 저장된 revision 과 비교해 오래된 쓰기를 거부한다.
+          const current = await requestToPromise<StudyWork | undefined>(
+            store.get(work.studyInstanceUid),
+          );
+          if (current && current.revision > work.revision) {
+            stale = new WorkStoreError(
+              "stale",
+              `더 최신 결과(revision ${current.revision})가 이미 저장되어 있어 revision ${work.revision} 을 저장하지 않았습니다`,
+            );
+            transaction.abort();
+          } else {
+            store.put(work);
+          }
+        } catch (error) {
+          transaction.abort();
+          await done.catch(() => undefined);
+          throw toWorkStoreError(error);
+        }
+        try {
+          await done;
+        } catch (error) {
+          throw stale ?? toWorkStoreError(error);
+        }
+        if (stale) throw stale;
+      });
     },
 
     close() {
-      closed = true;
-      void opening?.then((db) => db.close()).catch(() => undefined);
+      lifecycle.close();
+    },
+
+    closeWhenIdle() {
+      lifecycle.closeWhenIdle();
     },
   };
 }

@@ -1,5 +1,17 @@
 # Codex 검수 기록
 
+## 이슈 #3 사전 검수: Supabase 인증 전환
+
+- 작업 브랜치 `feat/3-supabase-auth`, 기준 main `23fbac0b`. 로컬 Supabase와 관리자 생성 이메일·비밀번호 계정은 사용자 확정이다. 영상·결과의 서버 저장 전환은 후속 범위다.
+- 공개 가입 API422 `signup_disabled`, 실제 Auth 로그인, 위조·폐기 세션 거부, 안전한 복귀 경로, same-origin 로그아웃, 다중탭/뒤로 가기 차단, A/B 자료 분리와 익명 DB 보존을 확인했다.
+- Codex가 env 파일의 다른 설정·주석 삭제를 먼저 실패 회귀로 재현하고 수정 후 관리도구20/20을 독립 확인했다. 비밀번호 파일의 이메일 경로 이탈도 안전한 인코딩과 회귀로 수정했다.
+- POST 전 로그아웃 알림으로 인한 navigation 경합과 localhost/127.0.0.1 출처 변경을 찾아 수정했다. 저장 전 로그아웃은 마지막 편집을 먼저 저장한다. Provider 해제·계정 전환 중 첫 저장 다음 revision까지 원래 계정에 기록되는 경계와 단순 close mutation 실패 근거를 확인했다.
+- Red 근거: 최초 모듈4개 미구현 실패를 직접 실행했고, Opus 단위·통합88실패/8통과/오류1, Story 실패와 접근 제어 E2E 실패 로그를 확인했다. 다만 인증 E2E 일부는 구현 후 작성됐다는 절차 위반이 있었다. 이 사실을 완료 근거에서 숨기지 않고, 이후 수정은 시나리오·실패 테스트부터 진행하도록 재지시했다.
+- 2026-11-04 Codex 독립 재실행(`.local/issue3/codex-final-*.log`): 단위·통합388/388, Chromium Story99/99, 타입·lint(경고0)·format, 앱·Storybook 빌드, 프로덕션 E2E47/47·개발 E2E47/47 통과. Opus의 최종 로그와도 일치한다.
+- 브라우저 QA: Browser plugin not available이므로 프로젝트 Playwright 사용. `127.0.0.1:3000`에서 데스크톱1440×1000·모바일390×844의 비로그인→로그인→검사 목록→로그아웃을 직접 실행했다. 페이지 정체성·본문·상호작용 정상, framework overlay·pageerror·console error·가로 넘침 없음. 캡처 `/tmp/herdr-auth-{desktop,mobile}.png`, `/tmp/herdr-list-{desktop,mobile}.png`를 확인했다.
+- 미검증: 실제 1시간 만료 경과 후 토큰 갱신, Chromium 외 브라우저, 클라우드·HTTPS 프록시, 실제 임상·대용량 환경. 쿠키 제거·위조·폐기 검증은 실제 만료 갱신 검증을 대신하지 않는다.
+- 사전 검수 후 PR을 열고 별도 Codex 리뷰어가 현재 head 전체 merge diff를 검토한다. main 병합은 사용자 통제이며 이 기록은 병합 허가가 아니다.
+
 ## 1차: 개발 기반과 슬라이스 정렬
 
 - Codex가 최초 테스트 15개의 `not implemented` 실패를 직접 실행해 확인했다.

@@ -1,5 +1,20 @@
 # 에이전트 작업 재개 메모
 
+## 현재 활성 작업: 이슈 #3 인증 전환
+
+- 사용자 직접 병합한 PR #2의 main 커밋: `23fbac0b0002d21d6541cb4f10b3d0140c1d91e0`. 로컬도 최신화한 뒤 `feat/3-supabase-auth`에서 작업 중이다.
+- 이슈: https://github.com/jinyu74/sample-cornerstone/issues/3, 상세 지시: `docs/tasks/3-supabase-auth.md`.
+- 사용자 확정: 로컬 Supabase로 개발·테스트한 뒤 클라우드는 후속 연결. 관리자가 만든 이메일·비밀번호 계정만 로그인, 공개 가입·소셜 로그인 없음. 원본 DICOM DB/Storage 업로드 없음.
+- 로컬 Docker 실행 중, Supabase CLI `2.122.0`을 mise에 고정했다. 전용 프로젝트 `dicom-annotator`, API `127.0.0.1:55321`, DB55322. 서버 상태/키를 출력하지 말고 내부 파싱한다.
+- 구현: 우측 Claude `opus-worker` (`w4:p2`, 기존 세션 유지). 별도 Codex 리뷰어 `codex-reviewer`는 `w4:p9`에서 이전 PR 리뷰 완료 후 대기 중. 새 PR 오픈 후 현재 head로 다시 리뷰시킨다.
+- 최신 구현: 서버 세션 검증·로그인/로그아웃·안전한 복귀 경로·다중탭 로그아웃·계정별 IndexedDB 경계·로컬 관리 스크립트. 기존 익명 DB는 보존하며 자동 귀속하지 않는다. 서버 영상 저장·메타데이터/결과 DB 전환은 아직 후속 범위다.
+- Opus 최종 실행: 단위·통합388, Story99, 타입·lint·format·앱/Storybook 빌드, 개발/프로덕션 E2E47/47 통과(`.local/issue3/final-*.log`). 일부 인증 E2E는 구현 후 작성됐다는 절차 위반을 보고했으며, 이후 수정은 시나리오·의도한 Red부터 진행하도록 재지시했다.
+- Codex는 사용량 감시기의 실제 회복 확인 후 같은 세션에서 재개했다. 체크포인트 `.local/agent-budgets/checkpoint.json`의 중단 사유는 `codex budget pause`이며 대화를 clear하지 않았다.
+- Codex 독립 검수에서 env 파일 덮어쓰기, 로그아웃 POST 전 알림 경합, localhost/127.0.0.1 출처 변경, 종료 중 직렬 저장 누락을 확인·수정 검증했다. 기존 확대→다른 도구 전환 회귀도 유지한다.
+- 현재 Codex 최종 품질 검수 재실행 로그는 `.local/issue3/codex-final-*.log`다. 실행 결과는 `docs/reviews.md`에 갱신한다. Opus는 추가 수정·빌드 없이 검수 대기 중이다.
+- 다음: 감독 검수 → 커밋·푸시·PR → 별도 리뷰어의 현재 head 전체 merge diff 리뷰 → 결과 댓글. 사용자의 명시적 병합 요청 전에는 머지하지 않는다.
+- 아래 기존 1~3차 진행·사용량·서버 PID는 역사 기록이다. 현재 상태는 이 절과 `docs/reviews.md`, 실시간 프로세스·감시기 상태를 우선한다.
+
 ## 목표와 사용자 지침
 
 - 프로젝트: 로컬 전용 DICOM 측정·메모·장기/병변 라벨링 앱. 전체 범위는 `docs/claude-dicom-task.md`.

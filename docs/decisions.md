@@ -56,3 +56,15 @@
 | 작업 상태                   | 결과 없음/주석 없음 = 미작업, 주석 있음 = 작업 중, 사용자 완료 표시 = 완료                                                   | 지시서의 세 상태를 실제 결과에서 계산                                                                                                          |
 | Cornerstone Tools 빌드 정지 | `patches/@cornerstonejs__tools@5.14.0.patch` 로 compute worker 등록을 끊음(사용 시 명시적 오류)                              | compute worker 의 자기 import 순환이 Turbopack 프로덕션 빌드를 교착시킴. 진단·재발 대응은 `docs/build-hang-guide.md`. 분할 기능 도입 시 재검토 |
 | Tailwind 탐색 범위          | `@import "tailwindcss" source("../..")` 로 `src` 만 탐색                                                                     | git 저장소가 아니라 `.gitignore` 가 적용되지 않아 로그·빌드 산출물까지 탐색함                                                                  |
+
+### 이슈 #3 인증·저장 경계 기술 결정
+
+- **서버 검증 위치**: Proxy(`src/proxy.ts`)는 토큰 갱신 쿠키 반영과 낙관적 리다이렉트만 한다(`getClaims`). 보호 페이지·레이아웃·`/auth/session` 은 서버 DAL(`requireUser`/`getCurrentUser`)이 `auth.getUser()` 로 Auth 서버에 확인한다. 쿠키의 세션 객체(`getSession`)는 신뢰하지 않는다. 레이아웃은 화면 이동마다 다시 실행되지 않으므로 페이지에서도 다시 확인한다.
+- **캐시**: Proxy 의 모든 분기(통과·리다이렉트·설정 오류 503)와 인증 Route Handler 응답에 `private, no-cache, no-store` 를 붙인다.
+- **로그인·로그아웃**: 로그인은 Server Action(입력 서버 검증, 잘못된 자격 증명과 서비스 오류를 구분하되 계정 존재 여부는 드러내지 않음). 로그아웃은 같은 출처(scheme·host·port) POST Route Handler + 상대 `Location` 303. 서버 내부 `request.url`(localhost)로 리다이렉트하면 출처가 바뀌어 쿠키·탭 간 알림이 끊기므로 상대 경로를 쓴다.
+- **다른 탭 알림 시점**: POST 전에 BroadcastChannel 로 알리면 같은 탭의 SessionGuard 이동이 POST 를 취소할 수 있다. 서버 로그아웃 후 `/login?signed_out=1` 에 도착한 탭이 알린다.
+- **계정별 저장소**: 전역 싱글턴 저장소를 없애고, 서버가 검증한 계정 ID 별 IndexedDB(`dicom-annotator:user:<uuid>`)를 `UserStorageProvider` 가 제공한다. 같은 계정 이동·StrictMode 재마운트에서는 보유 수 레지스트리로 연결을 유지하고, 계정이 바뀌면 `key={userId}` 로 하위 트리를 새로 만든다.
+- **정리 순서**: 저장소 정리는 `closeWhenIdle` 로 진행 중 작업과 그 직후 이어지는 직렬 저장(flush)이 끝난 뒤 닫는다. 단순 지연 `close()` 는 첫 저장이 끝나기 전에 닫혀 두 번째 revision 저장이 실패함을 mutation 테스트로 확인했다.
+- **문서 전체 이동과 저장**: 로그아웃은 문서 전체 이동이라 React 정리의 저장을 기대할 수 없다. 뷰어는 로그아웃 전에 `saveNow` 를 기다리고, 실패하면 확인 대화상자를 띄운다.
+- **기존 익명 저장소**: 이전 공용 `dicom-annotator` DB 는 열거나 지우거나 계정에 옮기지 않는다(다른 사람 자료가 섞이는 것을 막음). 재가져오기·JSON 복원을 안내한다.
+- **로컬 Supabase 설정**: `[auth] enable_signup = false` 로 모든 제공자의 공개 가입을 막는다. `[auth.email] enable_signup` 은 이메일 로그인 제공자 자체를 끄므로 `true` 로 둔다(끄면 `email_provider_disabled`). 공개 키만 Next 서버에 주고(`NEXT_PUBLIC_` 미사용) 서비스 비밀키는 로컬 관리 스크립트에서만 실행 중에 읽는다.

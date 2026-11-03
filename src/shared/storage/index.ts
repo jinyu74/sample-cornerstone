@@ -5,3 +5,4 @@ export {
   openAppDatabase,
   STORE,
 } from "./app-database";
+export { LEGACY_DATABASE_NAME, userDatabaseName } from "./user-database";
