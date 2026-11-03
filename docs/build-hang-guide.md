@@ -52,4 +52,4 @@ Turbopack 프로덕션 빌드는 `new Worker(new URL(...))` 를 worker 진입점
 ## 함께 지킬 운영 규칙
 
 - Next 빌드·`next start`·E2E(prod) 는 같은 `.next` 를 쓰므로 동시에 실행하지 않는다. 사용자 미리보기(`next start`)를 띄운 상태에서 prod E2E 를 돌릴 때는 `E2E_SKIP_BUILD=1` 로 기존 빌드를 재사용한다.
-- 이 프로젝트는 git 저장소가 아니므로 Tailwind 자동 탐색이 `.gitignore` 를 적용하지 못한다. `globals.css` 의 `source("../..")` 로 `src` 만 탐색한다.
+- 최초 빌드 정체를 조사할 당시에는 Git 저장소가 아니어서 Tailwind 자동 탐색에 `.gitignore`가 적용되지 않았다. 현재는 Git으로 관리하며, `globals.css`의 `source("../..")`로 `src`만 탐색하는 설정을 유지한다.

@@ -7,7 +7,7 @@
 - `AGENTS.md`, `CLAUDE.md`, `/Users/jinyu/.codex/RTK.md`를 따른다. 모든 기능은 시나리오/인수 조건과 실패 테스트를 먼저 작성한 뒤 구현한다.
 - FSD 기반 계층, 모델·타입 분리, 책임별 hook, shadcn/ui 확장, 사용 디자인 컴포넌트의 Storybook 등록. lint/format/typecheck/test/build/Storybook/E2E를 통과해야 한다.
 - 우측 Claude Opus 5.5가 구현하고 왼쪽 Codex가 직접 코드와 테스트를 검수한다. 사용자 결정이 필요한 항목은 즉시 알린다.
-- 배포, 외부 서비스 생성, 실제 환자 파일 전송, git init/커밋은 요청되지 않았다.
+- Git 저장소는 `jinyu74/sample-cornerstone`에 연결됐고 초기 커밋은 `main`에 푸시됐다. 이후 작업은 `docs/development-workflow.md`의 이슈·브랜치·사전 검수·PR·별도 Codex 리뷰 절차를 따른다. 리뷰어는 `$review-agent` 스킬을 사용하며 리뷰 승인은 병합 허가가 아니다. `main`은 사용자가 직접 병합하거나 명시적으로 병합을 요청한 경우에만 감독 Codex가 병합한다. 배포, 외부 서비스 생성, 실제 환자 파일 전송은 별도 결정 사항이다.
 
 ## 세션 연결
 

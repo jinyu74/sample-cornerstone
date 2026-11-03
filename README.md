@@ -3,6 +3,7 @@
 브라우저에서 DICOM 영상을 열고 측정·메모·장기/병변 라벨을 작성하는 로컬 앱입니다. Next.js App Router, React, TypeScript, Cornerstone3D를 사용합니다. 원본 영상과 작업 결과는 브라우저의 IndexedDB에 저장됩니다. 파일 가져오기는 서버 업로드가 아닙니다.
 
 개발 규칙은 [AGENTS.md](./AGENTS.md)를 참고하세요.
+이슈·작업 브랜치·Codex/Claude 역할·PR 리뷰와 병합 절차는 [공통 개발 절차](./docs/development-workflow.md)를 따릅니다. PR 오픈 후 별도 패널의 Codex 리뷰어가 `$review-agent` 스킬로 검토합니다. 리뷰 승인과 병합 권한은 별개이며, `main` 병합은 사용자가 직접 하거나 해당 PR·커밋에 대해 명시적으로 병합을 요청한 경우에만 진행합니다.
 
 ## 1. 환경 구성
 
