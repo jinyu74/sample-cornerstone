@@ -1,25 +1,23 @@
 # 에이전트 작업 재개 메모
 
-## 현재 활성 작업: 이슈 #3 인증 전환
+## 현재 활성 작업: 이슈 #3 인증 PR 사용자 검토·병합 대기
 
-- 사용자 직접 병합한 PR #2의 main 커밋: `23fbac0b0002d21d6541cb4f10b3d0140c1d91e0`. 로컬도 최신화한 뒤 `feat/3-supabase-auth`에서 작업 중이다.
-- 이슈: https://github.com/jinyu74/sample-cornerstone/issues/3, 상세 지시: `docs/tasks/3-supabase-auth.md`.
-- 사용자 확정: 로컬 Supabase로 개발·테스트한 뒤 클라우드는 후속 연결. 관리자가 만든 이메일·비밀번호 계정만 로그인, 공개 가입·소셜 로그인 없음. 원본 DICOM DB/Storage 업로드 없음.
-- 로컬 Docker 실행 중, Supabase CLI `2.122.0`을 mise에 고정했다. 전용 프로젝트 `dicom-annotator`, API `127.0.0.1:55321`, DB55322. 서버 상태/키를 출력하지 말고 내부 파싱한다.
-- 구현: 우측 Claude `opus-worker` (`w4:p2`, 기존 세션 유지). 별도 Codex 리뷰어 `codex-reviewer`는 `w4:p9`에서 이전 PR 리뷰 완료 후 대기 중. 새 PR 오픈 후 현재 head로 다시 리뷰시킨다.
-- 최신 구현: 서버 세션 검증·로그인/로그아웃·안전한 복귀 경로·다중탭 로그아웃·계정별 IndexedDB 경계·로컬 관리 스크립트. 기존 익명 DB는 보존하며 자동 귀속하지 않는다. 서버 영상 저장·메타데이터/결과 DB 전환은 아직 후속 범위다.
-- Opus 최종 실행: 단위·통합417, Story102, 타입·lint·format·앱/Storybook 빌드, 개발/프로덕션 E2E48/48 통과(`.local/issue3/final-*.log`). 일부 인증 E2E는 구현 후 작성됐다는 절차 위반을 보고했으며, 이후 수정은 시나리오·의도한 Red부터 진행하도록 재지시했다.
-- Codex는 사용량 감시기의 실제 회복 확인 후 같은 세션에서 재개했다. 체크포인트 `.local/agent-budgets/checkpoint.json`의 중단 사유는 `codex budget pause`이며 대화를 clear하지 않았다.
-- Codex 독립 검수에서 env 파일 덮어쓰기, 로그아웃 POST 전 알림 경합, localhost/127.0.0.1 출처 변경, 종료 중 직렬 저장 누락을 확인·수정 검증했다. 기존 확대→다른 도구 전환 회귀도 유지한다.
-- 현재 Codex 최종 품질 검수 재실행 로그는 `.local/issue3/codex-final-*.log`다. 실행 결과는 `docs/reviews.md`에 갱신한다. Opus는 추가 수정·빌드 없이 검수 대기 중이다.
-- PR #4 https://github.com/jinyu74/sample-cornerstone/pull/4 를 열었다(head `d56555bf1ea691c39c70f94432d4eeeec9a0f4d4`). 독립 전체96파일 리뷰에서 P1 세션 무효 이동 취소 시 보호 콘텐츠 지속, P2 다른 프로젝트 쿠키 삭제가 발견돼 Opus가 실패 회귀부터 수정 중이다. 두 건을 수정하고 감독이 단위417·Story102·타입/lint/format·앱/Storybook 빌드·프로덕션48/48 및 화면 QA를 통과했다. Opus 개발48/48도 확인했다. 상세와 댓글은 `docs/reviews.md`. 다음은 수정 커밋 반영·새 head 독립 리뷰·결과 댓글이며 사용자 명시적 병합 요청 전에는 머지하지 않는다.
-- 아래 기존 1~3차 진행·사용량·서버 PID는 역사 기록이다. 현재 상태는 이 절과 `docs/reviews.md`, 실시간 프로세스·감시기 상태를 우선한다.
-
-- 최신 재리뷰: head `e950ac00356bc67e94c5023bb273b362a2a8bb8e`, 전체107파일에서 이전2건 해결 확인, 신규 P2 입력 중 메모 draft 유실1건. 세션 Gate가 blur 없이 NoteField를 제거해 입력이 모델에 반영되지 않는다. 해당 유실과 모바일 Sheet Portal 누락을 Red부터 수정했고, 감독 단위422·Story102·타입/lint/format/Storybuild·인증 브라우저4 및 Opus 전체prod/dev 각각50/50·앱 빌드가 통과했다. 최신 수정 커밋을 반영한 뒤 별도 리뷰어의 새 head 재검토가 남아 있다. 전체 앱·테스트 선행 규칙과 사용자 병합 통제는 유지한다.
+- 이슈 #3: https://github.com/jinyu74/sample-cornerstone/issues/3 . PR #4: https://github.com/jinyu74/sample-cornerstone/pull/4 . 작업 브랜치 `feat/3-supabase-auth`, 기준 main `23fbac0b0002d21d6541cb4f10b3d0140c1d91e0`.
+- 사용자 결정: 로컬 Supabase 개발·테스트 후 클라우드 연결, 관리자 생성 이메일·비밀번호 계정만 로그인. 공개 가입·소셜 로그인 없음. DICOM 원본은 DB/Storage/public에 업로드하지 않는다.
+- 이번 구현: 서버 세션·쿠키 검증, 로그인/로그아웃, 안전한 복귀 경로, 다중탭/뒤로 가기 차단, 계정별 IndexedDB와 익명 DB 보존, 로컬 관리 스크립트. 서버 영상 폴더·메타데이터/결과 DB·클라우드는 후속 범위이며 전체 앱 목표 완료가 아니다.
+- 구현 Opus: `opus-worker`, `w4:p2`, 세션 `835f3cf4-4548-455b-a142-2afc555fc22f`. 독립 리뷰어: `codex-reviewer`, `w4:p9`. 기존 세션을 유지한다. Opus는 구현·검사 완료 후 대기 중이다.
+- 런타임 코드 head `86b4ab9ee38b0a9a08dfeceeaba2083b05e86cb5`에서 별도 `$review-agent` 전체108파일 독립 리뷰 결과 **No findings**. 앞선 보호 화면 지속·다른 프로젝트 쿠키 삭제·입력 중 메모 유실 지적과 모바일 Portal 누락은 실패 회귀부터 수정했다. 최신 PR head와 리뷰 결과는 PR 댓글을 조회한다(이 메모 보완은 문서 변경이다).
+- 최종 감독 독립 실행: unit422, Story102, type/lint/format/Storybook build, 변경 인증 프로덕션 브라우저4/4와 데스크톱·모바일 시각 QA. Opus의 최신 앱 빌드·전체 prod/dev 각각50/50 및 품질 로그도 직접 확인했다. 근거: `docs/reviews.md`, `.local/issue3/codex-final-portal-*.log`, `final-portal-*.log`.
+- 2026-11-04 08시 재개 후 실제 자연 만료된 저장 JWT로 Auth 요청→새 토큰·응답 쿠키 발급→보호 목록 표시·no-store를 독립 확인했다(`naturally-expired-session-qa.log`). 실제 만료 갱신의 기존 공백은 이 로컬 시나리오에서 확인됐다. Chromium 외·클라우드/HTTPS·임상·대용량 검증은 남아 있다.
+- 로컬 Supabase 프로젝트 `dicom-annotator`, CLI2.122.0(mise), API127.0.0.1:55321, DB55322. 키/비밀번호/쿠키는 출력하지 않는다. 로컬 미리보기 http://127.0.0.1:3000 (실행 상태·PID는 다시 확인).
+- 사용자 테스트 계정 `reader@example.test`, 비밀번호는 `.local/auth/user-reader%40example%2Etest.txt`(0600)에서 사용자가 직접 확인한다. Storybook dev 서버는 사용자 직접 실행 원칙을 유지한다.
+- main 병합은 사용자 직접 수행 또는 해당 PR/head의 명시적 병합 요청 때만 가능하다. 리뷰 결과·일반 동의는 병합 허가가 아니다. 현재 병합 요청 없음. 다음 구현은 이 PR 병합 확인 뒤 메타데이터/RLS·SSR 목록, 비공개 서버 영상 저장/API, 서버 결과 저장의 후속 이슈로 진행한다.
+- 사용량 감시기는 실제 잔여량 회복 후 감독 세션을 재개했다. `.local/agent-budgets/checkpoint.json`과 `.local/issue3/supervisor-status.json`을 함께 확인한다. 대화를 clear하지 않는다. 리뷰어도 같은 Codex 한도를 쓰므로 진행 중 한도 초과 시 함께 중단한다.
+- 아래 1~3단위·사용량·서버 PID는 역사 기록이다. 최신 상태는 이 절·PR 댓글·실시간 Git/프로세스 상태를 우선한다.
 
 ## 목표와 사용자 지침
 
-- 프로젝트: 로컬 전용 DICOM 측정·메모·장기/병변 라벨링 앱. 전체 범위는 `docs/claude-dicom-task.md`.
+- 프로젝트: DICOM 측정·메모·장기/병변 라벨링 앱. 현재 브라우저 저장 구현에 인증을 붙였고, 이후 비공개 서버 영상 저장과 메타데이터·결과 DB로 확장한다. 기존 뷰어 범위는 `docs/claude-dicom-task.md`.
 - Next.js App Router + TypeScript, Cornerstone3D StackViewport, IndexedDB. `mise`로 도구 버전을 고정하고 패키지 관리·스크립트 실행은 `pnpm`만 사용한다.
 - `AGENTS.md`, `CLAUDE.md`, `/Users/jinyu/.codex/RTK.md`를 따른다. 모든 기능은 시나리오/인수 조건과 실패 테스트를 먼저 작성한 뒤 구현한다.
 - FSD 기반 계층, 모델·타입 분리, 책임별 hook, shadcn/ui 확장, 사용 디자인 컴포넌트의 Storybook 등록. lint/format/typecheck/test/build/Storybook/E2E를 통과해야 한다.

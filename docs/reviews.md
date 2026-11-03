@@ -45,6 +45,12 @@
 - 최종 브라우저 QA: `127.0.0.1:3000` 데스크톱1440×1000/모바일390×844에서 로그인→목록→로그아웃, 세션 제거→navigation 정지→보호 콘텐츠 제거·안내 유지 확인. 최신 캡처도 직접 읽었다(`/tmp/herdr-list-{desktop,mobile}.png`, `/tmp/herdr-session-ended-{desktop,mobile}.png`). 정상 흐름 console/page error0, 거부 흐름은 의도한 `/auth/session`401만 있고 예상 밖 오류·가로 넘침 없음. Browser plugin not available로 프로젝트 Playwright를 사용했다.
 - 수정한 새 head를 다시 독립 리뷰한다. 기존 실제1시간 만료·다른 브라우저·클라우드/HTTPS 검증 공백은 유지하며 전체 서버 저장 전환 완료나 병합 허가로 표현하지 않는다.
 
+### 런타임 head 최종 독립 리뷰와 자연 만료 갱신 확인
+
+- head `86b4ab9ee38b0a9a08dfeceeaba2083b05e86cb5`, merge-base `23fbac0b0002d21d6541cb4f10b3d0140c1d91e0`. 별도 리뷰어가 전체108파일과 호출을 검토해 **No findings**를 보고했다. 일반/Portal 메모·유효/무효 좌표·외부 복원 메모를 오래된 draft로 덮어쓰지 않는 경계의 메모리 내 검증5건도 통과했다. 이전 지적은 모두 해결됐다. 리뷰어는 전체 빌드/E2E를 재실행하거나 파일을 변경하지 않았다.
+- 감독이 한도 재설정 후 동일 세션으로 재개하면서 Git/PR head 동일·작업 트리 깨끗함·main 미병합을 확인했다. 리뷰 결과는 같은 계정의 일반 PR 댓글로 남기며 병합 허가가 아니다. 이후 이 기록 정리는 문서 변경이며 최신 PR head의 리뷰는 댓글을 기준으로 확인한다.
+- 중단 전 저장된 원래 JWT의 실제 `exp`가 지난 것을 확인한 뒤 로컬 Auth에 요청했다. 세션 응답200, 새 access token 발급, 응답 쿠키 반영, 보호 목록 표시, no-store가 모두 통과했다. 비밀번호/토큰/키는 출력하지 않았다(`.local/issue3/naturally-expired-session-qa.log`). 이로써 로컬 실제 자연 만료 갱신 시나리오를 확인했다. 기존 공백 기록은 당시의 역사이며 Chromium 외·클라우드/HTTPS·실제 임상/대용량 검증은 여전히 남아 있다.
+
 ## 1차: 개발 기반과 슬라이스 정렬
 
 - Codex가 최초 테스트 15개의 `not implemented` 실패를 직접 실행해 확인했다.

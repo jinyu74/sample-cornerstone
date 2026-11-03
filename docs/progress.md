@@ -1,6 +1,6 @@
 # 진행 기록 (중단 후 재개용)
 
-마지막 갱신: 이슈 #3(로컬 Supabase 로그인·서버 세션·계정별 저장소) 구현·Codex 독립 전체 검사 통과, PR 이후 독립 리뷰 대기
+마지막 갱신: 이슈 #3(로컬 Supabase 로그인·서버 세션·계정별 저장소) 인증 구현·품질 검사·런타임 head 독립 리뷰 통과, 사용자 PR 검토·병합 대기
 
 ## 완료·승인
 
@@ -36,5 +36,7 @@
 - 도구: Supabase CLI 2.122.0(mise), `@supabase/supabase-js` 2.118.0, `@supabase/ssr` 0.12.7(정확 고정). 전용 로컬 스택 `dicom-annotator`(포트 553xx).
 - 검사(로그 `.local/issue3/final-*.log`): typecheck·lint(경고 0)·format, unit 422, Story 102, build, build-storybook, E2E dev 50/50, E2E prod 50/50(직전 빌드), 브라우저 번들에 Supabase 키·URL 없음.
 - Codex 독립 실행: 단위·통합422, Story102, 타입·lint·format·Storybook 빌드, 이전 전체 프로덕션48/48 이후 최신 인증 변경 회귀4/4, 데스크톱·모바일 QA 통과. 최신 앱 빌드와 전체 dev/prod50/50은 Opus 실행 로그를 직접 확인했다.
-- 남은 항목: PR 이후 리뷰어 검토, 사용자 병합 결정.
-- 미검증: 실제 만료 시간 경과에 따른 토큰 갱신(로컬 jwt_expiry 3600초, 쿠키 제거·위조·폐기 경계는 별도 확인), Chromium 외 브라우저, 클라우드 Supabase·HTTPS 프록시 환경.
+- 런타임 head `86b4ab9` 독립 전체108파일 리뷰: No findings. 최신 PR head·문서 보완 리뷰는 PR 댓글을 확인한다.
+- 남은 항목: 사용자 PR 검토·병합 결정. 서버 영상/메타데이터·결과 저장은 후속 이슈다.
+- 자연 만료 갱신: 중단 중 실제로 만료된 원래 JWT로 새 토큰·응답 쿠키·보호 페이지·no-store를 감독이 직접 확인했다.
+- 미검증: Chromium 외 브라우저, 클라우드 Supabase·HTTPS 프록시, 실제 임상·대용량 환경.
