@@ -1,6 +1,6 @@
 # DICOM 작업실 — 환경 구성·실행·테스트
 
-브라우저에서 DICOM 영상을 열고 측정·메모·장기/병변 라벨을 작성하는 로컬 앱입니다. Next.js App Router, React, TypeScript, Cornerstone3D를 사용합니다. 원본 영상과 작업 결과는 브라우저의 IndexedDB에 저장됩니다. 파일 가져오기는 서버 업로드가 아닙니다.
+브라우저에서 DICOM 영상을 열고 측정·메모·장기/병변 라벨을 작성하는 앱입니다. Next.js App Router, React, TypeScript, Cornerstone3D를 사용합니다. 관리자가 만든 계정으로 로그인해야 쓸 수 있으며(Supabase Auth, 현재 로컬 스택), 원본 영상과 작업 결과는 **계정별로 이 브라우저의 IndexedDB**에 저장됩니다. 파일 가져오기는 서버 업로드가 아닙니다.
 
 개발 규칙은 [AGENTS.md](./AGENTS.md)를 참고하세요.
 이슈·작업 브랜치·Codex/Claude 역할·PR 리뷰와 병합 절차는 [공통 개발 절차](./docs/development-workflow.md)를 따릅니다. PR 오픈 후 별도 패널의 Codex 리뷰어가 `$review-agent` 스킬로 검토합니다. 리뷰 승인과 병합 권한은 별개이며, `main` 병합은 사용자가 직접 하거나 해당 PR·커밋에 대해 명시적으로 병합을 요청한 경우에만 진행합니다.
@@ -15,14 +15,16 @@ cd /Users/jinyu/MyProject/herdrPractice
 
 먼저 `mise`가 설치되어 있어야 합니다. 설치·셸 연결 방법은 [mise 공식 안내](https://mise.jdx.dev/getting-started.html)를 참고하세요. 아래 명령은 `mise exec`를 사용하므로 셸의 Node/pnpm 버전에 의존하지 않습니다.
 
-| 도구                                | 프로젝트 버전 |
-| ----------------------------------- | ------------- |
-| Node.js                             | 24.22.2       |
-| pnpm                                | 12.17.0       |
-| Next.js                             | 16.4.3        |
-| React                               | 19.3.1        |
-| TypeScript                          | 6.0.3         |
-| Cornerstone core/tools/DICOM loader | 5.14.0        |
+| 도구                                  | 프로젝트 버전    |
+| ------------------------------------- | ---------------- |
+| Node.js                               | 24.22.2          |
+| pnpm                                  | 12.17.0          |
+| Next.js                               | 16.4.3           |
+| React                                 | 19.3.1           |
+| TypeScript                            | 6.0.3            |
+| Cornerstone core/tools/DICOM loader   | 5.14.0           |
+| Supabase CLI(mise)                    | 2.122.0          |
+| @supabase/supabase-js · @supabase/ssr | 2.118.0 · 0.12.7 |
 
 런타임 버전은 `mise.toml`, 패키지의 실제 설치 버전은 `pnpm-lock.yaml`로 관리합니다.
 
@@ -39,7 +41,35 @@ mise exec -- pnpm install --frozen-lockfile
 mise exec -- pnpm exec playwright install chromium
 ```
 
-현재 로컬 기능에 별도 데이터베이스 서버, API 키, `.env` 설정은 필요하지 않습니다. 초기 도구·패키지·브라우저 설치에는 네트워크 연결이 필요합니다.
+초기 도구·패키지·브라우저·Supabase 컨테이너 이미지 설치에는 네트워크 연결이 필요합니다.
+
+### 로컬 인증(Supabase) 준비
+
+로그인은 Docker 위의 **로컬 전용** Supabase Auth 를 사용합니다(클라우드 프로젝트·비용 없음). Docker 엔진이 실행 중이어야 합니다. 이 프로젝트 전용 스택(`project_id = "dicom-annotator"`, 포트 553xx)만 만들고 다른 컨테이너·볼륨은 건드리지 않습니다.
+
+```bash
+# 1) 전용 스택 시작(Auth·API 게이트웨이·Postgres·PostgREST 만 실행)
+mise exec -- pnpm supabase:start
+
+# 2) Next 서버용 연결 설정을 .env.local 에 기록(SUPABASE_URL·SUPABASE_PUBLISHABLE_KEY 만 갱신, 다른 설정 보존, 권한 0600)
+mise exec -- pnpm auth:local-env
+
+# 3) 관리자 경로로 로그인 계정 만들기(공개 가입은 서버 설정으로 막혀 있음)
+mise exec -- pnpm auth:create-user reader@example.test
+#    비밀번호는 출력하지 않고 .local/auth/user-<인코딩된 이메일>.txt(권한 0600)에만 씁니다.
+#    같은 명령을 다시 실행하면 비밀번호를 새로 정합니다.
+
+# 비밀번호 파일 확인: 목록·권한만 확인하고 내용은 터미널에 출력하지 마세요(로그·공유 화면에 남지 않도록).
+ls -l .local/auth/
+#    로그인할 때는 파일을 편집기로 직접 열어 비밀번호를 복사합니다.
+
+# 종료(데이터 볼륨은 유지)
+mise exec -- pnpm supabase:stop
+```
+
+- 공개 회원가입·소셜 로그인은 없습니다. `supabase/config.toml` 의 `[auth] enable_signup = false` 로 Auth 서버에서도 가입 API 를 거부합니다(422 `signup_disabled`).
+- 서비스 비밀키는 관리 스크립트가 실행 중에만 `supabase status` 에서 읽고 파일·로그·브라우저 번들에 넣지 않습니다. 관리 스크립트는 로컬 주소(127.0.0.1·localhost)가 아니면 동작하지 않습니다.
+- `.env.local` 이 없거나 값이 잘못되면 앱은 인증을 우회하지 않고 503 으로 실패합니다.
 
 `pnpm-workspace.yaml`의 `patchedDependencies`가 Cornerstone 빌드 호환 패치를 적용합니다. `patches/`와 잠금 파일을 함께 유지하고, `node_modules`를 직접 수정하지 않습니다.
 
@@ -51,7 +81,7 @@ mise exec -- pnpm exec playwright install chromium
 mise exec -- pnpm dev --hostname 127.0.0.1 --port 3000
 ```
 
-[http://127.0.0.1:3000](http://127.0.0.1:3000)에 접속합니다. 실행한 터미널을 유지하고, 종료할 때 `Ctrl+C`를 누릅니다. 코드를 수정하면 개발 서버가 반영합니다.
+[http://127.0.0.1:3000](http://127.0.0.1:3000)에 접속하면 로그인 화면으로 이동합니다. 위에서 만든 계정으로 로그인하세요(주소는 `127.0.0.1` 로 일관되게 사용하세요. `localhost` 와는 쿠키·브라우저 저장소가 따로입니다). 실행한 터미널을 유지하고, 종료할 때 `Ctrl+C`를 누릅니다. 코드를 수정하면 개발 서버가 반영합니다.
 
 ### 프로덕션 모드
 
@@ -123,7 +153,7 @@ mise exec -- pnpm storybook
 | `pnpm test:e2e`                | 앱 빌드 후 프로덕션 서버에서 E2E(3100)         |
 | `pnpm test:e2e:dev`            | 개발 서버에서 E2E(3200)                        |
 
-전체 검사 예시입니다. E2E는 자체 서버를 시작하므로 3100·3200 포트를 비워두고 빌드·E2E를 순서대로 실행합니다.
+전체 검사 예시입니다. E2E는 자체 서버를 시작하므로 3100·3200 포트를 비워두고 빌드·E2E를 순서대로 실행합니다. E2E 는 **실행 중인 로컬 Supabase**(`pnpm supabase:start`)에 실제로 로그인합니다. 테스트 계정 A·B 는 실행마다 관리자 경로로 만들거나 비밀번호를 새로 정하며 `.local/e2e/` 에만 기록합니다. 테스트용 인증 우회는 없습니다.
 
 ```bash
 mise exec -- pnpm check
@@ -184,10 +214,26 @@ mise exec -- pnpm exec playwright show-trace <실패-출력에-표시된-trace.z
 - 다시 연결하려면 같은 StudyInstanceUID·SeriesInstanceUID·SOPInstanceUID(멀티프레임은 frameNumber)를 가진 원본 DICOM 을 먼저 이 브라우저에 가져와야 합니다.
 - 좌표: `imagePoints` 는 픽셀 index `[열, 행]`(첫 픽셀 중심 = (0,0)), `worldPoints` 는 DICOM 환자 좌표(mm, 영상 기하가 유효할 때만). 측정값(`derivedMeasurement`)은 참고값이며 가져올 때 다시 계산합니다.
 
+## 로그인과 계정별 저장
+
+- 목록·뷰어는 서버에서 세션을 Auth 서버로 확인(`getUser`)한 뒤에만 렌더링합니다. 쿠키의 세션 객체만으로 신뢰하지 않으며, 로그인 화면 숨김이 아니라 서버 진입점(Proxy·페이지)에서 막습니다. 인증 관련 응답은 모두 `no-store` 입니다.
+- 로그인 후에는 안전한 내부 경로(`next`)로만 돌아갑니다. 외부 URL·`//host`·비정상 인코딩은 무시합니다.
+- 이미 열린 화면은 60초마다·창 포커스·탭 재표시·뒤로 가기 복원 때 서버 세션을 다시 확인합니다. 만료·로그아웃·계정 변경이면 **먼저 작업 화면을 닫고**(이동이 취소돼도 이전 계정의 영상·결과는 다시 보이지 않습니다) 계정 저장소의 진행 중 저장이 끝나기를 최대 3초 기다린 뒤 로그인 화면으로 문서 전체를 이동합니다. 저장소 정리가 실패해도 화면은 닫힌 채 이동하며, 이동이 막히면 "로그인 화면으로 이동" 안내가 남습니다. 한 탭에서 로그아웃하면 같은 브라우저의 다른 탭도 같은 방식으로 닫힙니다.
+- 세션이 끝날 때 입력 중인 메모는 화면을 닫기 전에 기존 검증·반영 경로를 거칩니다. 모바일 결과 Sheet(Portal) 안의 메모도 같은 계정 저장소에 저장합니다.
+- 로그아웃은 이 앱의 세션 쿠키(`sb-dicom-annotator-auth-token` 과 그 조각)만 지웁니다. 같은 호스트의 다른 Supabase 프로젝트 세션은 건드리지 않습니다.
+- 로그아웃은 서버 요청 후 문서 전체 이동입니다. 뷰어에서 로그아웃하면 저장하지 않은 편집을 먼저 저장하고, 저장에 실패하면 확인을 받습니다.
+- 원본·결과는 **계정 ID 별 IndexedDB**(`dicom-annotator:user:<계정 ID>`)에 저장됩니다. 같은 브라우저에서 다른 계정으로 로그인하면 이전 계정의 검사·결과가 보이지 않고, 원래 계정으로 다시 로그인하면 복원됩니다. 로그아웃해도 계정 저장소를 지우지 않습니다.
+
+### 로그인 도입 이전 자료(익명 저장소)
+
+- 이전 버전은 모든 사용자가 공유하는 `dicom-annotator` 저장소를 썼습니다. 새 버전은 이 저장소를 **열지 않고, 지우지 않고, 로그인한 계정에 자동으로 옮기지 않습니다**(다른 사람의 자료가 섞이는 것을 막기 위해).
+- 이전 자료를 계정에서 계속 쓰려면 로그인한 뒤 원본 DICOM 을 다시 가져오고, 보관해 둔 결과 JSON 을 각 검사에서 가져오세요.
+- 이전 저장소는 브라우저 사이트 데이터에 남아 있습니다. 필요 없으면 사용자가 브라우저 설정에서 직접 지울 수 있습니다.
+
 ## 로컬 저장 특성
 
 - 브라우저 사이트 데이터를 지우거나 저장 용량이 부족하면 원본과 결과가 사라지거나 저장되지 않을 수 있습니다. 저장 실패는 화면에 실패로 표시됩니다.
-- 다른 브라우저·기기와 공유되지 않습니다. 필요하면 결과 JSON 을 내보내 보관하세요.
+- 다른 브라우저·기기와 공유되지 않습니다(계정이 같아도 브라우저마다 따로 저장). 필요하면 결과 JSON 을 내보내 보관하세요.
 
 ## 검증 범위(합성 데이터)
 
@@ -198,7 +244,8 @@ mise exec -- pnpm exec playwright show-trace <실패-출력에-표시된-trace.z
 
 ## 미구현·범위 밖
 
-- 서버 업로드·계정·공동 작업·검수 역할, PACS/DICOMweb 연동, DICOM SR/SEG 내보내기.
+- 서버 영상 저장·전달, 메타데이터·결과 DB(RLS), 서버 결과 저장은 **다음 단계(후속 이슈)** 입니다. 이번 단계는 로그인·서버 세션 검증과 계정별 브라우저 저장소 경계까지이며, 서버 저장 전환이 끝난 것이 아닙니다.
+- 클라우드 Supabase 연결·배포, 비밀번호 재설정·초대 메일, 역할·권한(관리자/검수자), 공동 작업, PACS/DICOMweb 연동, DICOM SR/SEG 내보내기.
 - 브러시·지우개·임계값 기반 픽셀/복셀 분할(윤곽 주석은 분할 마스크가 아님), MPR·3D·슬라이스 보간·부피 계산.
 - 위 항목의 기본값과 영향은 `docs/decisions.md` 를 참고하세요.
 

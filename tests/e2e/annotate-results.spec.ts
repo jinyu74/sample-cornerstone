@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { UID } from "../fixtures/dicom/scenarios";
 
+import { AUTH_STATE } from "./auth-paths";
 import {
   brightness,
   canvasBrightness,
@@ -29,7 +30,7 @@ test.describe("측정·라벨·저장·복원", () => {
     await importGroups(page, "single");
     await openSeries(page, UID.studyA, UID.seriesSingle);
 
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await expect(results(page)).toHaveCount(1);
     await expect(viewport(page)).toHaveAttribute("data-annotation-count", "1");
@@ -96,7 +97,7 @@ test.describe("측정·라벨·저장·복원", () => {
     await importGroups(page, "uncalibrated");
     await openSeries(page, UID.studyB, UID.seriesStudyB);
 
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await setPoint(page, 1, 0, 0);
     await setPoint(page, 2, 3, 4);
@@ -162,9 +163,9 @@ test.describe("측정·라벨·저장·복원", () => {
   }) => {
     await importGroups(page, "single");
     await openSeries(page, UID.studyA, UID.seriesSingle);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.7], [0.65, 0.7]);
     await expect(results(page)).toHaveCount(2);
 
@@ -201,7 +202,7 @@ test.describe("측정·라벨·저장·복원", () => {
     await page.keyboard.press("ArrowRight");
     await expect(page.getByTestId("frame-position")).toHaveText("3 / 5");
     await waitRendered(page);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await expect(results(page)).toContainText(["영상 3/5"]);
 
@@ -225,7 +226,7 @@ test.describe("측정·라벨·저장·복원", () => {
   }) => {
     await importGroups(page, "single");
     await openSeries(page, UID.studyA, UID.seriesSingle);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     // 자동 저장 지연 전에 바로 떠난다.
     await page.getByRole("link", { name: "검사 목록" }).click();
@@ -251,7 +252,7 @@ test.describe("측정·라벨·저장·복원", () => {
   }) => {
     await importGroups(page, "stack");
     await openSeries(page, UID.studyA, UID.seriesStack);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await setPoint(page, 1, 0, 0);
     await setPoint(page, 2, 10, 0);
@@ -265,7 +266,8 @@ test.describe("측정·라벨·저장·복원", () => {
       studyInstanceUid: UID.studyA,
     });
 
-    const fresh = await browser.newContext();
+    // 같은 계정으로 로그인했지만 브라우저 저장소(IndexedDB)가 비어 있는 새 브라우저
+    const fresh = await browser.newContext({ storageState: AUTH_STATE });
     const other = await fresh.newPage();
     await importGroups(other, "stack", "uncalibrated");
     await openSeries(other, UID.studyA, UID.seriesStack);
@@ -304,7 +306,7 @@ test.describe("시리즈·멀티프레임 참조 연결", () => {
     await page.keyboard.press("ArrowRight");
     await expect(page.getByTestId("frame-position")).toHaveText("2 / 3");
     await waitRendered(page);
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await expect(results(page)).toContainText([
       "Enhanced multiframe · 영상 2/3",
@@ -437,7 +439,7 @@ test.describe("viewport 조작·MR 스택·썸네일·모바일", () => {
     for (let i = 1; i < markers.length; i += 1)
       expect(markers[i]!).toBeGreaterThan(markers[i - 1]! + 2);
 
-    await page.getByRole("button", { name: "길이" }).click();
+    await page.getByRole("button", { name: "길이", exact: true }).click();
     await drag(page, [0.35, 0.5], [0.65, 0.5]);
     await page.getByRole("button", { name: "저장", exact: true }).click();
     await expectSaved(page);

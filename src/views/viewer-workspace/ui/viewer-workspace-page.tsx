@@ -11,12 +11,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import {
-  getBrowserDicomStore,
+  useDicomStore,
   imagePlaneAt,
   SeriesList,
   useStudyCatalog,
 } from "@/entities/dicom-study";
-import { type Annotation, getBrowserWorkStore } from "@/entities/study-work";
+import { type Annotation, useStudyWorkStore } from "@/entities/study-work";
+import { AccountMenu, submitSignOut } from "@/features/auth";
 import { useStudyWork, ViewerToolbar } from "@/features/edit-study-work";
 import {
   downloadJson,
@@ -70,8 +71,8 @@ export function ViewerWorkspacePage({
   studyInstanceUid,
   seriesInstanceUid,
 }: ViewerWorkspacePageProps) {
-  const [dicomStore] = useState(getBrowserDicomStore);
-  const [workStore] = useState(getBrowserWorkStore);
+  const dicomStore = useDicomStore();
+  const workStore = useStudyWorkStore();
   const catalog = useStudyCatalog(dicomStore);
   const work = useStudyWork({ store: workStore, studyInstanceUid });
   const router = useRouter();
@@ -79,7 +80,11 @@ export function ViewerWorkspacePage({
   const [selectedId, setSelectedId] = useState<string>();
   const [positions, setPositions] = useState<Record<string, number>>({});
   const [panel, setPanel] = useState<"series" | "results">();
-  const [leaveFailed, setLeaveFailed] = useState<string>();
+  const [leaveFailed, setLeaveFailed] = useState<{
+    message: string;
+    /** 저장 실패를 확인한 뒤 갈 곳 */
+    target: "list" | "sign-out";
+  }>();
 
   const study = catalog.studies.find(
     (item) => item.studyInstanceUid === studyInstanceUid,
@@ -95,7 +100,7 @@ export function ViewerWorkspacePage({
   );
   const { entries, locations } = useWorkspaceAnnotations(study, work.work);
   const unsaved = work.saveState !== "saved";
-  useUnsavedChangesGuard(unsaved);
+  const unloadGuard = useUnsavedChangesGuard(unsaved);
 
   const displayed = useMemo<DisplayedAnnotation[]>(
     () =>
@@ -221,10 +226,29 @@ export function ViewerWorkspacePage({
   /** 저장하지 않은 변경이 있으면 저장한 뒤 이동하고, 저장에 실패하면 확인을 받는다 */
   const leave = async () => {
     if (unsaved && !(await work.saveNow())) {
-      setLeaveFailed(work.saveError ?? "작업 결과를 저장하지 못했습니다");
+      setLeaveFailed({
+        message: work.saveError ?? "작업 결과를 저장하지 못했습니다",
+        target: "list",
+      });
       return;
     }
     router.push("/");
+  };
+
+  /**
+   * 로그아웃은 문서 전체 이동이라 화면 정리(cleanup)의 저장을 기대할 수 없다.
+   * 이동 전에 마지막 변경까지 저장하고, 실패하면 사용자 확인을 받는다.
+   */
+  const confirmSignOut = async () => {
+    if (!(await work.saveNow())) {
+      setLeaveFailed({
+        message: work.saveError ?? "작업 결과를 저장하지 못했습니다",
+        target: "sign-out",
+      });
+      return false;
+    }
+    unloadGuard.release();
+    return true;
   };
 
   const seriesList = study ? (
@@ -267,24 +291,27 @@ export function ViewerWorkspacePage({
     <div className="flex h-dvh flex-col">
       <AppHeader
         actions={
-          <div className="flex items-center gap-1 lg:hidden">
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="시리즈 열기"
-              onClick={() => setPanel("series")}
-            >
-              <ListIcon aria-hidden />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="작업 결과 열기"
-              onClick={() => setPanel("results")}
-            >
-              <PanelRightIcon aria-hidden />
-            </Button>
-          </div>
+          <>
+            <AccountMenu confirmSignOut={confirmSignOut} />
+            <div className="flex items-center gap-1 lg:hidden">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="시리즈 열기"
+                onClick={() => setPanel("series")}
+              >
+                <ListIcon aria-hidden />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="작업 결과 열기"
+                onClick={() => setPanel("results")}
+              >
+                <PanelRightIcon aria-hidden />
+              </Button>
+            </div>
+          </>
         }
       >
         <Link
@@ -402,16 +429,26 @@ export function ViewerWorkspacePage({
           <AlertDialogHeader>
             <AlertDialogTitle>저장하지 못했습니다</AlertDialogTitle>
             <AlertDialogDescription>
-              {leaveFailed} 지금 나가면 저장하지 않은 변경이 사라질 수 있습니다.
+              {leaveFailed?.message} 지금 나가면 저장하지 않은 변경이 사라질 수
+              있습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>머무르기</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => router.push("/")}
+              onClick={() => {
+                if (leaveFailed?.target === "sign-out") {
+                  unloadGuard.release();
+                  submitSignOut();
+                } else {
+                  router.push("/");
+                }
+              }}
             >
-              저장하지 않고 나가기
+              {leaveFailed?.target === "sign-out"
+                ? "저장하지 않고 로그아웃"
+                : "저장하지 않고 나가기"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

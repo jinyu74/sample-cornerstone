@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { expect, type Locator, type Page } from "@playwright/test";
@@ -149,4 +149,49 @@ export async function canvasBrightness(
       sum += (data[i]! + data[i + 1]! + data[i + 2]!) / 3;
     return sum / (data.length / 4);
   }, region);
+}
+
+/** global-setup 이 만든 테스트 계정(비밀번호는 출력하지 않는다) */
+export interface E2EUser {
+  email: string;
+  password: string;
+  id: string;
+}
+
+export async function e2eUser(which: "a" | "b"): Promise<E2EUser> {
+  const file = path.join(
+    import.meta.dirname,
+    "..",
+    "..",
+    ".local",
+    "e2e",
+    "users.json",
+  );
+  const users = JSON.parse(await readFile(file, "utf8")) as Record<
+    string,
+    E2EUser
+  >;
+  return users[which]!;
+}
+
+/** 로그인 화면에서 실제 Auth 로 로그인한다 */
+export async function login(page: Page, which: "a" | "b", next = "/") {
+  const user = await e2eUser(which);
+  await page.goto(`/login?next=${encodeURIComponent(next)}`);
+  await page.getByLabel("이메일").fill(user.email);
+  await page.getByLabel("비밀번호").fill(user.password);
+  const origin = new URL(page.url()).origin;
+  await page.getByRole("button", { name: "로그인" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
+  // 로그인 전후 같은 출처(scheme·host·port)여야 쿠키·탭 간 알림이 이어진다
+  expect(new URL(page.url()).origin).toBe(origin);
+  return user;
+}
+
+/** 로그아웃 버튼으로 서버 로그아웃 후 로그인 화면까지 기다린다 */
+export async function logout(page: Page) {
+  const origin = new URL(page.url()).origin;
+  await page.getByRole("button", { name: "로그아웃" }).click();
+  await page.waitForURL(/\/login\?signed_out=1/);
+  expect(new URL(page.url()).origin).toBe(origin);
 }

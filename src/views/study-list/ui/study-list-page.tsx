@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 
 import {
-  getBrowserDicomStore,
+  useDicomStore,
   toStudyListItem,
   useStudyCatalog,
 } from "@/entities/dicom-study";
-import { getBrowserWorkStore, useWorkStatuses } from "@/entities/study-work";
+import { useStudyWorkStore, useWorkStatuses } from "@/entities/study-work";
+import { AccountMenu } from "@/features/auth";
 import {
   filterStudies,
   type StudyFilter,
@@ -26,8 +27,8 @@ const studyHref = (studyInstanceUid: string) =>
   `/studies/${encodeURIComponent(studyInstanceUid)}`;
 
 export function StudyListPage() {
-  const [store] = useState(getBrowserDicomStore);
-  const [workStore] = useState(getBrowserWorkStore);
+  const store = useDicomStore();
+  const workStore = useStudyWorkStore();
   const catalog = useStudyCatalog(store);
   const works = useWorkStatuses(workStore, catalog.studies);
   const importer = useDicomImport({ store, onFinished: catalog.reload });
@@ -52,7 +53,7 @@ export function StudyListPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <AppHeader />
+      <AppHeader actions={<AccountMenu />} />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-8 md:px-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex flex-col gap-1">
