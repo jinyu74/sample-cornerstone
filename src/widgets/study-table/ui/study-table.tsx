@@ -1,9 +1,9 @@
 import { FileUpIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 
-import { type StudyListItem, WorkStatusBadge } from "@/entities/dicom-study";
+import { OriginalsBadge, WorkStatusBadge } from "@/entities/dicom-study";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
-import { buttonVariants } from "@/shared/ui/button";
+import { Button, buttonVariants } from "@/shared/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -21,14 +21,32 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 
+import type { StudyTableRow } from "../model/types";
+
+import { SyncCell } from "./sync-cell";
+
 export interface StudyTableProps {
+  /** 이 브라우저 저장소 읽기 상태. 보여 줄 행(서버 목록 등)이 있으면 loading 이어도 행을 그린다 */
   status: "loading" | "ready" | "error";
-  items: readonly StudyListItem[];
+  items: readonly StudyTableRow[];
   error?: string;
   /** 저장된 검사는 있지만 필터 결과가 비었을 때 true */
   filtered?: boolean;
   getStudyHref: (studyInstanceUid: string) => string;
+  /** 이 브라우저 원본의 메타데이터를 서버 목록에 반영(처음·다시 시도) */
+  onSync?: (studyInstanceUid: string) => void;
+  /** 이 브라우저에 없는 원본을 다시 가져오기 */
+  onImportOriginals?: () => void;
 }
+
+/** 서버 기록과 맞든 아니든 이 브라우저에 원본이 있으면 열 수 있다 */
+const hasLocalOriginals = (row: StudyTableRow) =>
+  row.originals.kind !== "checking" &&
+  row.originals.kind !== "unreadable" &&
+  row.localOriginals > 0;
+
+const needsOriginals = (row: StudyTableRow) =>
+  row.originals.kind === "missing" || row.originals.kind === "partial";
 
 export function StudyTable({
   status,
@@ -36,28 +54,31 @@ export function StudyTable({
   error,
   filtered = false,
   getStudyHref,
+  onSync,
+  onImportOriginals,
 }: StudyTableProps) {
-  if (status === "loading") {
-    return (
-      <div
-        role="status"
-        className="flex items-center justify-center gap-2 rounded-md border py-12 text-muted-foreground"
-      >
-        <Spinner aria-hidden role="presentation" />
-        검사 목록을 불러오는 중
-      </div>
-    );
-  }
-  if (status === "error") {
-    return (
+  const alert =
+    status === "error" ? (
       <Alert variant="destructive">
         <TriangleAlertIcon aria-hidden />
         <AlertTitle>로컬 저장소를 읽지 못했습니다</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
-    );
-  }
+    ) : null;
+
   if (items.length === 0) {
+    if (status === "loading") {
+      return (
+        <div
+          role="status"
+          className="flex items-center justify-center gap-2 rounded-md border py-12 text-muted-foreground"
+        >
+          <Spinner aria-hidden role="presentation" />
+          검사 목록을 불러오는 중
+        </div>
+      );
+    }
+    if (alert) return alert;
     return (
       <Empty className="rounded-md border">
         <EmptyHeader>
@@ -84,48 +105,91 @@ export function StudyTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-md border">
-      <Table aria-label="검사 목록">
-        <TableHeader className="bg-sidebar">
-          <TableRow>
-            <TableHead className="px-4">검사 날짜</TableHead>
-            <TableHead>검사 식별자</TableHead>
-            <TableHead>Modality</TableHead>
-            <TableHead>시리즈</TableHead>
-            <TableHead>작업 상태</TableHead>
-            <TableHead className="w-24 pr-4">
-              <span className="sr-only">동작</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.studyInstanceUid}>
-              <TableCell className="px-4 py-3">{item.displayDate}</TableCell>
-              <TableCell className="max-w-64 truncate">
-                {item.identifier}
-              </TableCell>
-              <TableCell>{item.modalities.join(", ") || "—"}</TableCell>
-              <TableCell>{item.seriesCount}개</TableCell>
-              <TableCell>
-                <WorkStatusBadge status={item.workStatus} />
-              </TableCell>
-              <TableCell className="pr-4 text-right">
-                <Link
-                  href={getStudyHref(item.studyInstanceUid)}
-                  aria-label={`${item.identifier} 검사 열기`}
-                  className={buttonVariants({
-                    variant: "accent-outline",
-                    size: "sm",
-                  })}
-                >
-                  열기
-                </Link>
-              </TableCell>
+    <div className="flex flex-col gap-3">
+      {alert}
+      <div className="overflow-x-auto rounded-md border">
+        <Table aria-label="검사 목록">
+          <TableHeader className="bg-sidebar">
+            <TableRow>
+              <TableHead className="px-4">검사 날짜</TableHead>
+              <TableHead>검사 식별자</TableHead>
+              <TableHead>Modality</TableHead>
+              <TableHead>시리즈</TableHead>
+              <TableHead>이 브라우저 원본</TableHead>
+              <TableHead>서버 목록</TableHead>
+              <TableHead>작업 상태</TableHead>
+              <TableHead className="w-24 pr-4">
+                <span className="sr-only">동작</span>
+              </TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.studyInstanceUid}>
+                <TableCell className="px-4 py-3">{item.displayDate}</TableCell>
+                <TableCell className="max-w-64 truncate">
+                  {item.identifier}
+                </TableCell>
+                <TableCell>{item.modalities.join(", ") || "—"}</TableCell>
+                <TableCell>{item.seriesCount}개</TableCell>
+                <TableCell>
+                  <OriginalsBadge
+                    status={item.originals}
+                    localCount={item.localOriginals}
+                  />
+                </TableCell>
+                <TableCell>
+                  <SyncCell
+                    sync={item.sync}
+                    identifier={item.identifier}
+                    onSync={
+                      onSync ? () => onSync(item.studyInstanceUid) : undefined
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  <WorkStatusBadge status={item.workStatus} />
+                </TableCell>
+                <TableCell className="pr-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    {needsOriginals(item) && onImportOriginals ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`${item.identifier} 원본 가져오기`}
+                        onClick={onImportOriginals}
+                      >
+                        원본 가져오기
+                      </Button>
+                    ) : null}
+                    {hasLocalOriginals(item) ? (
+                      <Link
+                        href={getStudyHref(item.studyInstanceUid)}
+                        aria-label={`${item.identifier} 검사 열기`}
+                        className={buttonVariants({
+                          variant: "accent-outline",
+                          size: "sm",
+                        })}
+                      >
+                        열기
+                      </Link>
+                    ) : item.originals.kind === "checking" ? (
+                      <Button
+                        variant="accent-outline"
+                        size="sm"
+                        disabled
+                        aria-label={`${item.identifier} 검사 열기`}
+                      >
+                        열기
+                      </Button>
+                    ) : null}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

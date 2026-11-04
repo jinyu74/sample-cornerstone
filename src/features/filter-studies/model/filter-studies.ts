@@ -3,10 +3,10 @@ import type { StudyListItem } from "@/entities/dicom-study";
 import type { StudyFilter } from "./types";
 
 /** 검색어(날짜·식별자·설명·modality 부분 일치)와 작업 상태로 검사 목록을 거른다. 순서는 유지한다. */
-export function filterStudies(
-  items: readonly StudyListItem[],
+export function filterStudies<T extends StudyListItem>(
+  items: readonly T[],
   filter: StudyFilter,
-): StudyListItem[] {
+): T[] {
   const query = filter.query.trim().toLocaleLowerCase("ko");
   return items.filter((item) => {
     if (filter.status !== "all" && item.workStatus !== filter.status)

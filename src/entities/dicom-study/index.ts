@@ -27,6 +27,7 @@ export type {
   DicomInstanceMetadata,
   FrameGeometry,
   FrameKind,
+  ListWorkStatus,
   Orientation,
   SeriesGroup,
   StackImageRef,
@@ -41,5 +42,32 @@ export type {
 export { SeriesList, seriesLabel } from "./ui/series-list";
 export type { SeriesListProps } from "./ui/series-list";
 export { WorkStatusBadge } from "./ui/work-status-badge";
+export { OriginalsBadge } from "./ui/originals-badge";
+export type { OriginalsBadgeProps } from "./ui/originals-badge";
 export type { WorkStatusBadgeProps } from "./ui/work-status-badge";
 export { DicomStoreProvider, useDicomStore } from "./api/store-context";
+export {
+  CATALOG_LIMITS,
+  parseCatalogSyncRequest,
+  projectCatalogStudy,
+} from "./model/catalog-metadata";
+export type {
+  CatalogInstancePayload,
+  CatalogPayloadProblem,
+  CatalogSeriesPayload,
+  CatalogStudyPayload,
+  CatalogSyncRequest,
+  CatalogSyncRequestParse,
+} from "./model/catalog-metadata";
+export { compareCatalogStudy } from "./model/catalog-compare";
+export type {
+  CatalogComparison,
+  OriginalsStatus,
+  OriginalsView,
+} from "./model/catalog-compare";
+export type {
+  CatalogListResult,
+  CatalogStudySummary,
+} from "./model/catalog-summary";
+export type { CatalogSyncOutcome } from "./api/catalog-repository";
+export { compareUid } from "./model/compare-uid";

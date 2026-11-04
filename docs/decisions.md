@@ -70,3 +70,17 @@
 - **로컬 Supabase 설정**: `[auth] enable_signup = false` 로 모든 제공자의 공개 가입을 막는다. `[auth.email] enable_signup` 은 이메일 로그인 제공자 자체를 끄므로 `true` 로 둔다(끄면 `email_provider_disabled`). 공개 키만 Next 서버에 주고(`NEXT_PUBLIC_` 미사용) 서비스 비밀키는 로컬 관리 스크립트에서만 실행 중에 읽는다.
 - **세션 종료 시 fail-closed(PR #4 리뷰 P1)**: 세션 무효를 감지하면 문서 이동 성공 여부와 무관하게 SessionGate 가 보호 화면(계정 저장소 포함)을 먼저 언마운트하고 로그인 안내만 렌더링한다. 미저장 확인(beforeunload)을 사용자가 취소해도 이전 계정 화면이 남지 않는다. 언마운트로 시작된 마지막 편집 저장은 계정 저장소가 진행 중·직렬 저장을 마치고 닫힐 때까지 최대 3초 기다린 뒤 이동한다(정리 실패·초과 시에도 화면은 닫힌 채 이동). 상태·이탈 순서는 `useSessionEnd`, 조립은 `ProtectedShell`(app), 렌더는 `SessionGate`(features)가 맡는다.
 - **세션 쿠키 이름(PR #4 리뷰 P2)**: 기본 이름 `sb-<호스트 첫 부분>-auth-token` 은 같은 호스트의 다른 Supabase 프로젝트(다른 포트)와 겹친다(쿠키는 포트로 구분되지 않음). `cookieOptions.name = "sb-dicom-annotator-auth-token"` 으로 고정하고 로그아웃은 이 키·청크(`.N`)·`-code-verifier` 만 지운다. 서비스 오류로 signOut 이 실패해도 이 앱 쿠키는 지운다.
+
+### 이슈 #5 검사 메타데이터·RLS·SSR 목록 기술 결정
+
+- **저장 범위**: 서버(로컬 Supabase Postgres)에는 목록용 메타데이터만 둔다. 원본·픽셀·작업 결과는 계정별 IndexedDB 에 남는다. 투영은 `projectCatalogStudy` 의 명시 allowlist(UID·날짜·설명·Study ID·Accession·modality·시리즈 번호/설명·원본 SHA-256)이며 환자 ID 는 보내지 않는다(데이터 최소화, 감독 승인). 그 결과 서버에만 있는 행의 식별자는 Accession → Study ID → UID 이고, 원본이 있는 브라우저는 기존 규칙(환자 ID 포함)을 유지한다.
+- **스키마**: `catalog_studies`·`catalog_series`·`catalog_instances` 정규화, PK 에 `owner_id` 포함(A·B 가 같은 UID 독립 소유), 계층 FK(owner, study[, series]), UID·digest·날짜·길이·제어문자 CHECK. 수는 클라이언트 aggregate 가 아니라 `catalog_study_summaries`(security_invoker view)가 센다.
+- **권한**: 각 테이블 RLS + `to authenticated` SELECT/INSERT 정책(`(select auth.uid()) = owner_id`). UPDATE·DELETE 정책·GRANT 없음(소유권 변경 불가), INSERT 는 컬럼 지정(created_at 제외). anon/PUBLIC 권한 없음. `service_role` 의 SELECT·DELETE 는 합성 테스트 계정 정리 전용이며 앱은 쓰지 않는다. `user_metadata` 를 권한 근거로 쓰지 않는다.
+- **원자적 반영**: RPC `sync_catalog_study(p_expected_owner, p_study)` 는 `SECURITY INVOKER`·`search_path=''`, authenticated 만 EXECUTE. 기대 계정 ≠ `auth.uid()` 이면 거부, 키·타입·개수(시리즈 200·영상 1000)를 SQL 에서도 검증, `on conflict do nothing` 후 시리즈/영상 계층·digest 충돌이면 예외로 트랜잭션 전체 취소(기존 기록 보존, 같은 요청의 새 행도 미반영). 반복·동시 요청은 멱등.
+- **기대 계정**: 클라이언트가 보내는 `expectedUserId` 는 권한 근거가 아니라 계정이 바뀐 뒤 도착한 이전 화면 요청을 거부하는 용도다. Route Handler(현재 계정 비교)와 RPC(`auth.uid()` 비교)가 모두 확인한다.
+- **경로**: `POST /api/catalog/sync` Route Handler(같은 출처·JSON·본문 512KiB 상한 스트림 읽기·엄격 검증, 모든 응답 no-store). Proxy 공개 경로로 두어 리다이렉트 대신 401 을 준다. 서버 DAL 은 `@/entities/dicom-study/server`(server-only) 단일 공개 진입점이며, lint 는 이 정확한 경로만 허용한다(하위 경로·다른 슬라이스 `server` 는 계속 금지).
+- **SSR**: `(protected)/page.tsx` 가 `requireUser` 후 `listCatalogStudies()` 결과(최소 DTO)를 클라이언트 페이지 props 로 넘겨 행이 최초 HTML 에 들어간다. 반영 성공 뒤 `router.refresh()` 로 다시 렌더링한다. 서버 목록 장애는 빈 목록이 아니라 `unavailable` 로 알린다.
+- **큰 목록**: PostgREST `max_rows`(1000)를 넘겨도 잘리지 않도록 고유 키 오름차순 keyset 페이지로 읽는다(서버 상한이 페이지 크기보다 작아도 안전). 순서 판정은 DB 정렬에 맡기고 같은 키가 다시 오면 오류로 멈춘다(무한·중복 방지). DTO 는 검사 요약 + 비교용 (SOP UID, digest) + 시리즈 UID 만 담는다.
+- **표시 규칙**: 원본 일치(서버 기록 대비 complete/partial/missing/mismatch)와 이 브라우저 실제 원본 수를 분리한다. 열기·미작업 판정은 실제 로컬 원본 기준, 반영 상태 우선순위는 이번 화면의 진행 중·실패 > 내용 불일치(충돌, 새로고침 후에도 유지) > 계산값. 시리즈 수는 서버∪로컬 시리즈 UID 합집합.
+- **동기화 hook**: 진행 중인 검사에 다시 요청이 오면 dirty 로 표시하고, 끝난 뒤 최신 원본을 다시 읽어 마지막으로 보낸 스냅샷과 다를 때만 다시 보낸다. 언마운트·계정 변경 뒤 끝난 응답은 상태·`router.refresh` 에 반영하지 않는다.
+- **migration 관리**: `db query` 로 로컬 스키마를 반복 검토 → advisors → `supabase db diff --local -s public -f <이름>` 로 CLI 생성 → 이미 적용된 로컬 DB 는 `migration repair --status applied` 로 기록만(재실행·db reset 없음) → `db:verify-migrations` 로 새 임시 DB 재현 비교. 파일 2개(`20261104064142_study_catalog`, `20261104064659_study_catalog_rpc_input_validation`).

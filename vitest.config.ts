@@ -33,6 +33,18 @@ export default defineConfig({
         },
       },
       {
+        // 실제 로컬 Supabase(Auth·Data API·Postgres)로 RLS·제약을 확인한다. 스택이 실행 중이어야 한다.
+        extends: true,
+        test: {
+          name: "db",
+          environment: "node",
+          include: ["tests/db/**/*.db.test.ts"],
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+      {
         // Storybook stories 를 실제 브라우저(chromium)에서 렌더링·상호작용·a11y 검사
         extends: true,
         plugins: [
