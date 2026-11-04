@@ -140,3 +140,11 @@
 - Browser plugin이 없어 프로젝트 Playwright로 직접 QA했다. 데스크톱1440×1000·모바일390×844 목록, 합성 CT 가져오기·메타데이터 반영·영상 렌더, 새 브라우저의 원본 없음/작업 기록 없음/열기 차단, JS 없는 최초HTML 행과 no-store를 확인했다. 페이지/콘솔 오류0, 문서 가로 넘침0. `.local/issue5/codex-browser-qa.log`, `qa-*.png`를 시각 확인했다. 미리보기3000은 최종 빌드로 유지하고 Storybook dev는 실행하지 않았다.
 - 충돌 유지 수정 후 감독 단위525개와 전체prod58개를 다시 실행했다. prod E2E와 미리보기 로그에는 destination stream 오류0건이다. dev17건의 제한은 위와 같다. README의 설명도 확인된 사실과 미확정 원인을 구분했다.
 - PR 오픈 전 미해결 사전 검수 지적은 없다. PR 이후 별도 Codex가 현재 head 전체 merge diff를 리뷰해야 하며 사용자 병합 허가는 아직 없다.
+
+### PR #6 독립 리뷰
+
+- 별도 Herdr Codex 리뷰어가 `review-agent` 스킬을 실제로 읽고 main/upstream·merge-base부터 전체76파일과 관련 호출·테스트·SQL을 검토했다. head `18f231c5b751c60db5a10edf3699ae82eaf0e828`, 판정 **No findings**. 보고할 구체적인 도입 결함이 없으며 병합 허가는 아니다.
+- 리뷰어 직접 실행은 unit522/525·diff 검사 통과. 나머지3개는 기존 환경 설정 테스트의 임시 디렉터리 생성이 읽기 전용 sandbox EPERM으로 차단됐다. 감독의 같은 런타임 전체525개 통과와 구분한다. 리뷰어가 DB·앱/Story 빌드·E2E·브라우저 QA를 재실행한 것은 아니다.
+- dev stream17건 중 일부만 컨텍스트 종료와 대응되며 나머지 원인은 미확정이다. 클라우드·HTTPS·다른 브라우저·임상 대용량도 미검증이다.
+- 같은 계정 결과 댓글: https://github.com/jinyu74/sample-cornerstone/pull/6#issuecomment-6629285255 . 정식 GitHub Approve review가 아니며 사용자 병합 요청은 아직 없다. 이 기록을 포함한 문서 변경 이후 head도 재검토하고 최신 결과는 PR 댓글로 남긴다.
+- Codex91%에서 감시기가 중단한 뒤 2026-11-04 20:19 KST 실제0% 회복을 확인해 같은 세션으로 재개했다. 리뷰는 중단 직전에 완료됐으므로 반복 구현을 하지 않고 판정·댓글·재개 기록을 복구했다.

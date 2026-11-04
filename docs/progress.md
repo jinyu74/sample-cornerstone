@@ -52,3 +52,5 @@
 - 남은 제한: dev 서버 로그의 RSC stream 중단 경고(`docs/reviews.md` 이슈 #5 절), Chromium 외 브라우저·클라우드 Supabase 미검증, 결과 서버 저장·서버 영상 폴더는 후속 이슈.
 
 - 감독 최종 사전 검수: 단위·통합525, Story121, 실제DB40, 타입·lint·format·앱/Storybook 빌드, 전체prod58/58, dev58/58(실행 Opus) 통과. 데스크톱·모바일/새 브라우저·JS 없는 SSR·영상 렌더·네트워크 메타데이터·브라우저 오류0 직접 확인. PR 독립 리뷰와 사용자 병합 결정은 별도 단계다.
+
+- PR #6 오픈·독립 리뷰 완료: https://github.com/jinyu74/sample-cornerstone/pull/6 . 런타임 head18f231c의 전체76파일 No findings. 같은 계정 리뷰 댓글은 정식 Approve나 병합 허가가 아니다. 사용자 PR 확인·병합 결정 대기이며 원본 서버 폴더/API와 결과 DB는 후속이다. 기록 문서 변경 이후 최신 head 판정은 PR 댓글을 기준으로 확인한다.
