@@ -50,6 +50,37 @@ function record(
 }
 
 describe("useStudyCatalog", () => {
+  it("서버 목록과 비교할 검사별 원본 manifest(SOP UID → digest)를 함께 준다", async () => {
+    const store = newStore();
+    await store.addInstance(
+      record("2.25.11", "2.25.1", "2.25.10", 0),
+      new ArrayBuffer(1),
+    );
+    await store.addInstance(
+      record("2.25.12", "2.25.1", "2.25.10", 1),
+      new ArrayBuffer(1),
+    );
+    await store.addInstance(
+      record("2.25.21", "2.25.2", "2.25.20", 0),
+      new ArrayBuffer(1),
+    );
+    const { result } = renderHook(() => useStudyCatalog(store));
+    expect(result.current.manifest.size).toBe(0);
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.manifest).toEqual(
+      new Map([
+        [
+          "2.25.1",
+          new Map([
+            ["2.25.11", "2.25.11"],
+            ["2.25.12", "2.25.12"],
+          ]),
+        ],
+        ["2.25.2", new Map([["2.25.21", "2.25.21"]])],
+      ]),
+    );
+  });
+
   it("저장소가 비어 있으면 빈 목록으로 ready", async () => {
     const { result } = renderHook(() => useStudyCatalog(newStore()));
 

@@ -40,3 +40,15 @@
 - 남은 항목: 사용자 PR 검토·병합 결정. 서버 영상/메타데이터·결과 저장은 후속 이슈다.
 - 자연 만료 갱신: 중단 중 실제로 만료된 원래 JWT로 새 토큰·응답 쿠키·보호 페이지·no-store를 감독이 직접 확인했다.
 - 미검증: Chromium 외 브라우저, 클라우드 Supabase·HTTPS 프록시, 실제 임상·대용량 환경.
+
+## 이슈 #5 — 검사 메타데이터·RLS·SSR 목록
+
+- 이슈 https://github.com/jinyu74/sample-cornerstone/issues/5 , 브랜치 `feat/5-study-catalog-ssr`, 기준 main `41fb4d60cce0bab0a6fe893e54233ed13d611e9e`.
+- PR #4는 사용자 명시 요청으로 병합했다. 이 후속 PR의 병합 허가는 별도다.
+- 계정 소유권을 유지하며 목록용 메타데이터만 로컬 Supabase에 저장하고 최초 HTML에 목록을 렌더링한다. 원본·작업 결과는 아직 계정별 IndexedDB이며 서버 파일·결과 저장·클라우드는 후속이다.
+- 상세 인수 조건은 `docs/tasks/5-study-catalog-ssr.md`. 계획 `.local/issue5/plan.md`.
+- 2026-11-04 Opus 구현 단계 완료(감독 최종 검수 대기): migration 2개(CLI 생성·로컬 적용 기록·재현 검증), RLS·RPC, 서버 DAL·Route Handler, 동기화 hook, SSR 목록·원본/반영 상태 UI·Stories, E2E 8건 추가.
+- Opus 최종 실행: 단위 524(감독 독립 확인 524), Story 121(감독), 실제 DB 40(감독), `db:verify-migrations` 통과(동시 2회 포함), advisors 이슈 없음, typecheck·lint·format, 앱 빌드, prod E2E 58/58(기능 연결 직후 빌드), dev E2E 58/58. 마지막 prod 빌드·prod E2E·화면 QA·Storybook 빌드는 감독이 실행한다.
+- 남은 제한: dev 서버 로그의 RSC stream 중단 경고(`docs/reviews.md` 이슈 #5 절), Chromium 외 브라우저·클라우드 Supabase 미검증, 결과 서버 저장·서버 영상 폴더는 후속 이슈.
+
+- 감독 최종 사전 검수: 단위·통합525, Story121, 실제DB40, 타입·lint·format·앱/Storybook 빌드, 전체prod58/58, dev58/58(실행 Opus) 통과. 데스크톱·모바일/새 브라우저·JS 없는 SSR·영상 렌더·네트워크 메타데이터·브라우저 오류0 직접 확인. PR 독립 리뷰와 사용자 병합 결정은 별도 단계다.

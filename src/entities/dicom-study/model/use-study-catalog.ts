@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { DicomStore } from "../api/types";
+import type { DicomStore, StoredInstanceRecord } from "../api/types";
 
 import { groupStudies } from "./group-studies";
 import type { SeriesGroup, StudyGroup } from "./types";
@@ -8,6 +8,8 @@ import type { SeriesGroup, StudyGroup } from "./types";
 export interface StudyCatalogState {
   status: "loading" | "ready" | "error";
   studies: StudyGroup[];
+  /** 검사 UID → (SOP UID → 원본 digest). 서버 목록과 이 브라우저 원본 비교용 */
+  manifest: ReadonlyMap<string, ReadonlyMap<string, string>>;
   error?: string;
   reload: () => Promise<void>;
 }
@@ -19,6 +21,7 @@ export function useStudyCatalog(store: DicomStore): StudyCatalogState {
   const [snapshot, setSnapshot] = useState<CatalogSnapshot>({
     status: "loading",
     studies: [],
+    manifest: EMPTY_MANIFEST,
   });
   // 늦게 끝난 이전 요청이 최신 결과를 덮어쓰지 않도록 요청 순번을 둔다.
   const requestId = useRef(0);
@@ -33,9 +36,15 @@ export function useStudyCatalog(store: DicomStore): StudyCatalogState {
       next = {
         status: "ready",
         studies: groupStudies(records.map((record) => record.metadata)),
+        manifest: toManifest(records),
       };
     } catch (error) {
-      next = { status: "error", studies: [], error: describe(error) };
+      next = {
+        status: "error",
+        studies: [],
+        manifest: EMPTY_MANIFEST,
+        error: describe(error),
+      };
     }
     return id === requestId.current ? next : undefined;
   }, [store]);
@@ -101,6 +110,23 @@ export function useSeriesStack(
 
   // 다른 시리즈로 바뀐 직후에는 이전 결과를 보여 주지 않는다.
   return result?.key === key ? result.state : { status: "loading" };
+}
+
+const EMPTY_MANIFEST: ReadonlyMap<
+  string,
+  ReadonlyMap<string, string>
+> = new Map();
+
+function toManifest(
+  records: readonly StoredInstanceRecord[],
+): Map<string, Map<string, string>> {
+  const manifest = new Map<string, Map<string, string>>();
+  for (const record of records) {
+    const study = manifest.get(record.studyInstanceUid) ?? new Map();
+    study.set(record.sopInstanceUid, record.contentDigest);
+    manifest.set(record.studyInstanceUid, study);
+  }
+  return manifest;
 }
 
 function describe(error: unknown): string {

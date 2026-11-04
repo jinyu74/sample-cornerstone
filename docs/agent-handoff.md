@@ -1,19 +1,22 @@
 # 에이전트 작업 재개 메모
 
-## 현재 활성 작업: 이슈 #3 인증 PR 사용자 검토·병합 대기
+## 현재 활성 작업: 이슈 #5 검사 메타데이터·RLS·SSR 목록
 
-- 이슈 #3: https://github.com/jinyu74/sample-cornerstone/issues/3 . PR #4: https://github.com/jinyu74/sample-cornerstone/pull/4 . 작업 브랜치 `feat/3-supabase-auth`, 기준 main `23fbac0b0002d21d6541cb4f10b3d0140c1d91e0`.
-- 사용자 결정: 로컬 Supabase 개발·테스트 후 클라우드 연결, 관리자 생성 이메일·비밀번호 계정만 로그인. 공개 가입·소셜 로그인 없음. DICOM 원본은 DB/Storage/public에 업로드하지 않는다.
-- 이번 구현: 서버 세션·쿠키 검증, 로그인/로그아웃, 안전한 복귀 경로, 다중탭/뒤로 가기 차단, 계정별 IndexedDB와 익명 DB 보존, 로컬 관리 스크립트. 서버 영상 폴더·메타데이터/결과 DB·클라우드는 후속 범위이며 전체 앱 목표 완료가 아니다.
-- 구현 Opus: `opus-worker`, `w4:p2`, 세션 `835f3cf4-4548-455b-a142-2afc555fc22f`. 독립 리뷰어: `codex-reviewer`, `w4:p9`. 기존 세션을 유지한다. Opus는 구현·검사 완료 후 대기 중이다.
-- 런타임 코드 head `86b4ab9ee38b0a9a08dfeceeaba2083b05e86cb5`에서 별도 `$review-agent` 전체108파일 독립 리뷰 결과 **No findings**. 앞선 보호 화면 지속·다른 프로젝트 쿠키 삭제·입력 중 메모 유실 지적과 모바일 Portal 누락은 실패 회귀부터 수정했다. 최신 PR head와 리뷰 결과는 PR 댓글을 조회한다(이 메모 보완은 문서 변경이다).
-- 최종 감독 독립 실행: unit422, Story102, type/lint/format/Storybook build, 변경 인증 프로덕션 브라우저4/4와 데스크톱·모바일 시각 QA. Opus의 최신 앱 빌드·전체 prod/dev 각각50/50 및 품질 로그도 직접 확인했다. 근거: `docs/reviews.md`, `.local/issue3/codex-final-portal-*.log`, `final-portal-*.log`.
-- 2026-11-04 08시 재개 후 실제 자연 만료된 저장 JWT로 Auth 요청→새 토큰·응답 쿠키 발급→보호 목록 표시·no-store를 독립 확인했다(`naturally-expired-session-qa.log`). 실제 만료 갱신의 기존 공백은 이 로컬 시나리오에서 확인됐다. Chromium 외·클라우드/HTTPS·임상·대용량 검증은 남아 있다.
-- 로컬 Supabase 프로젝트 `dicom-annotator`, CLI2.122.0(mise), API127.0.0.1:55321, DB55322. 키/비밀번호/쿠키는 출력하지 않는다. 로컬 미리보기 http://127.0.0.1:3000 (실행 상태·PID는 다시 확인).
-- 사용자 테스트 계정 `reader@example.test`, 비밀번호는 `.local/auth/user-reader%40example%2Etest.txt`(0600)에서 사용자가 직접 확인한다. Storybook dev 서버는 사용자 직접 실행 원칙을 유지한다.
-- main 병합은 사용자 직접 수행 또는 해당 PR/head의 명시적 병합 요청 때만 가능하다. 리뷰 결과·일반 동의는 병합 허가가 아니다. 현재 병합 요청 없음. 다음 구현은 이 PR 병합 확인 뒤 메타데이터/RLS·SSR 목록, 비공개 서버 영상 저장/API, 서버 결과 저장의 후속 이슈로 진행한다.
-- 사용량 감시기는 실제 잔여량 회복 후 감독 세션을 재개했다. `.local/agent-budgets/checkpoint.json`과 `.local/issue3/supervisor-status.json`을 함께 확인한다. 대화를 clear하지 않는다. 리뷰어도 같은 Codex 한도를 쓰므로 진행 중 한도 초과 시 함께 중단한다.
-- 아래 1~3단위·사용량·서버 PID는 역사 기록이다. 최신 상태는 이 절·PR 댓글·실시간 Git/프로세스 상태를 우선한다.
+- 사용자 요청 “머지 병합 후 다음 진행을 계속 하도록 한다.”에 따라 PR #4 head `66d63a27166b8d19470182507da577a0fb02be8e`를 병합했다. 병합 요청 기록: https://github.com/jinyu74/sample-cornerstone/pull/4#issuecomment-6624132421 . main merge commit `41fb4d60cce0bab0a6fe893e54233ed13d611e9e`.
+- 새 이슈: https://github.com/jinyu74/sample-cornerstone/issues/5 . 브랜치 `feat/5-study-catalog-ssr`, 기준은 위 main. 상세 지시와 인수 조건: `docs/tasks/5-study-catalog-ssr.md`.
+- 목표: 계정별 목록용 메타데이터를 로컬 Supabase DB에 저장·RLS 보호하고 최초 HTML에 서버 렌더링한다. 원본 영상·작업 결과는 아직 계정별 IndexedDB이며 DB/Storage/public에 업로드하지 않는다. 비공개 서버 폴더/API·결과 서버 저장·클라우드는 후속이다.
+- 기존 관리자 생성 계정과 계정별 소유권만 확장한다. 새 공유·역할 모델은 도입하지 않는다. 메타 동기화 실패·중복·계정 변경 경합·다른 브라우저 원본 부재·실제 JWT Data API RLS·JS 없이 SSR을 먼저 테스트한다. 기존 계정 자료와 legacy DB를 임의 이전·삭제하지 않는다.
+- Opus `opus-worker`/`w4:p2`/세션 `835f3cf4-4548-455b-a142-2afc555fc22f`가 구현하고 감독이 검수·git/PR을 맡는다. 별도 `codex-reviewer`/`w4:p9`는 다음 PR 리뷰까지 대기한다. 새 PR의 병합 허가는 아직 없으며 사용자에게 별도 요청을 받아야 한다.
+- PR #4 최종 기준: unit422·Story102, Opus 전체prod/dev50/50, 감독 변경인증4/4·품질·시각 QA·실제 자연 만료 갱신 통과. 최종 독립 No findings 댓글: https://github.com/jinyu74/sample-cornerstone/pull/4#issuecomment-6617898773 . 이 기준 회귀를 유지한다.
+- 로컬 Supabase `dicom-annotator`(API55321/DB55322), CLI2.122.0(mise). 키/비밀번호/토큰 출력 금지. 기존 Auth/볼륨·다른 프로젝트를 db reset/삭제하지 않는다. 실제DB·E2E 자료는 합성계정 범위로 격리한다.
+- 미리보기 http://127.0.0.1:3000 은 실행 여부를 확인하고 빌드/E2E와 조율해 종료·재기동한다. Storybook dev는 사용자가 직접 실행한다. 로그인 `reader@example.test`, 비밀번호 `.local/auth/user-reader%40example%2Etest.txt`(0600)를 사용자가 직접 확인한다.
+- 사용량 감시기 상태·체크포인트를 함께 읽고 실제 회복 후 같은 세션을 재개한다. 대화를 clear하거나 전체 앱 완료로 오인하지 않는다. 코드/리뷰어를 포함한 Codex 공유 한도도 관리한다.
+- 2026-11-04 감독 사전 검수 통과: 단위·통합 78파일525개, Story 28파일121개, 실제DB 4파일40개, 타입·lint·format, 앱·Storybook 빌드, 감독 전체 prod E2E58/58, Opus 전체 dev E2E58/58. 감독 브라우저 QA에서 데스크톱·모바일 목록, 원본 가져오기·반영·영상 렌더, 새 브라우저 원본/작업 부재, JS 없는 SSR·no-store·브라우저 오류0을 확인했다. 로그와 캡처는 `.local/issue5/codex-*.log`, `qa-*.png`.
+- 미리보기3000은 최종 빌드로 다시 실행했다. PID는 `.local/preview.pid`, 로그 `.local/preview.log`이며 실제 포트·프로세스를 다시 확인한다. Storybook dev는 기동하지 않았다.
+- 다음 단계: 최종 문서 format 확인 → 커밋·push·PR → 별도 Codex 전체 merge diff 리뷰·필요 수정 → 같은 계정 리뷰 댓글. 다음 PR을 사용자 명시 요청 없이 main에 병합하지 않는다. PR과 정확한 head는 GitHub 및 `.local/issue5/supervisor-status.json`에서 확인한다.
+- 남는 제한: dev 서버 RSC stream 경고17건 중 일부만 브라우저 종료와 요청 단위로 대응했다. 최종 prod 로그에는0건이며 dev/prod58개가 통과했다. Chromium 외 브라우저·클라우드 Supabase는 미검증이다. 세부 근거는 `docs/reviews.md` 이슈 #5 절에 있다.
+- 전체 앱 후속 범위는 비공개 서버 영상 폴더/API와 결과 서버 저장이다. 이 PR 병합 확인 후 별도 이슈로 진행하며 전체 앱 완료로 오인하지 않는다.
+- 아래 단계·사용량·PID는 역사 기록이다. 최신 상태는 이 절·현재 Git/이슈/PR·실시간 에이전트 상태가 기준이다.
 
 ## 목표와 사용자 지침
 

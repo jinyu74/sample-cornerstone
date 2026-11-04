@@ -138,6 +138,13 @@ export interface StudyGroup {
 /** 검사 작업 상태: 미작업 / 작업 중 / 완료 */
 export type WorkStatus = "untouched" | "in-progress" | "done";
 
+/**
+ * 목록에 보이는 작업 상태. 작업 결과는 아직 이 브라우저에만 있으므로
+ * 서버 목록에서 온 검사의 원본·기록이 이 브라우저에 없으면 "unknown"(미작업으로 단정하지 않음),
+ * 이 브라우저를 확인하기 전(최초 HTML)은 "checking" 이다.
+ */
+export type ListWorkStatus = WorkStatus | "checking" | "unknown";
+
 /** 검사 목록 한 행 */
 export interface StudyListItem {
   studyInstanceUid: string;
@@ -148,5 +155,5 @@ export interface StudyListItem {
   description?: string;
   modalities: string[];
   seriesCount: number;
-  workStatus: WorkStatus;
+  workStatus: ListWorkStatus;
 }

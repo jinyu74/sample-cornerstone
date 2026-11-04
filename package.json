@@ -18,6 +18,8 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:stories": "vitest run --project storybook",
+    "test:db": "vitest run --project db",
+    "db:verify-migrations": "tsx scripts/db/verify-migrations.ts",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006 --no-open",
     "build-storybook": "storybook build --quiet",

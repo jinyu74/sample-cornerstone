@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /**
  * 시나리오 1: 비로그인 상태의 직접 URL 접근은 보호 화면을 렌더링하지 않고 로그인으로 보낸다.

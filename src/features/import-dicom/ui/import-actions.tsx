@@ -1,13 +1,25 @@
 "use client";
 
 import { FolderIcon, UploadIcon } from "lucide-react";
-import { useId, useRef, type ChangeEvent } from "react";
+import {
+  type ChangeEvent,
+  type Ref,
+  useId,
+  useImperativeHandle,
+  useRef,
+} from "react";
 
 import { Button } from "@/shared/ui/button";
 
 import { useFolderPickerSupport } from "../model/use-folder-picker-support";
 
+/** 화면의 다른 곳(원본이 없는 목록 행 등)에서 같은 파일 선택을 열 때 쓴다 */
+export interface ImportActionsHandle {
+  openFilePicker: () => void;
+}
+
 export interface ImportActionsProps {
+  ref?: Ref<ImportActionsHandle>;
   onFiles: (files: File[]) => void;
   busy?: boolean;
   /** 폴더 선택 지원 여부. 생략하면 브라우저 기능을 감지한다 */
@@ -16,6 +28,7 @@ export interface ImportActionsProps {
 
 /** 파일·폴더 선택 버튼. 실제 input 은 hidden 으로 접근성 트리에서 빼고 같은 이름의 버튼으로만 연다. */
 export function ImportActions({
+  ref,
   onFiles,
   busy = false,
   folderSupported,
@@ -25,6 +38,15 @@ export function ImportActions({
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const hintId = useId();
+  useImperativeHandle(
+    ref,
+    () => ({
+      openFilePicker: () => {
+        if (!busy) fileInput.current?.click();
+      },
+    }),
+    [busy],
+  );
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);

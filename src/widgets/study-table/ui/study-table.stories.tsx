@@ -1,38 +1,51 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect } from "storybook/test";
+import { expect, fn, within } from "storybook/test";
 
-import type { StudyListItem } from "@/entities/dicom-study";
+import type { StudyTableRow } from "../model/types";
 
 import { StudyTable } from "./study-table";
 
 /** 컴포넌트 시연용 합성 행(실제 검사 아님) */
-const items: StudyListItem[] = [
-  {
-    studyInstanceUid: "2.25.1",
-    studyDate: "20261102",
-    displayDate: "2026.11.02",
-    identifier: "SYN-CT-001",
-    modalities: ["CT"],
-    seriesCount: 3,
-    workStatus: "in-progress",
-  },
-  {
-    studyInstanceUid: "2.25.2",
-    displayDate: "—",
-    identifier: "SYN-MR-001",
-    modalities: ["MR", "SR"],
-    seriesCount: 1,
-    workStatus: "untouched",
-  },
-];
+const base = {
+  studyDate: "20261102",
+  displayDate: "2026.11.02",
+  modalities: ["CT"],
+  seriesCount: 3,
+};
+const local: StudyTableRow = {
+  ...base,
+  studyInstanceUid: "2.25.1",
+  identifier: "SYN-CT-001",
+  workStatus: "in-progress",
+  originals: { kind: "complete", total: 3 },
+  localOriginals: 3,
+  sync: { kind: "synced" },
+};
+const other: StudyTableRow = {
+  studyInstanceUid: "2.25.2",
+  displayDate: "—",
+  identifier: "SYN-MR-001",
+  modalities: ["MR", "SR"],
+  seriesCount: 1,
+  workStatus: "untouched",
+  originals: { kind: "complete", total: 1 },
+  localOriginals: 1,
+  sync: { kind: "synced" },
+};
+const row = (overrides: Partial<StudyTableRow>): StudyTableRow => ({
+  ...local,
+  ...overrides,
+});
 
 const meta = {
   title: "widgets/StudyTable",
   component: StudyTable,
   args: {
     status: "ready",
-    items,
+    items: [local, other],
     getStudyHref: (uid: string) => `/studies/${uid}`,
+    onSync: fn(),
+    onImportOriginals: fn(),
   },
 } satisfies Meta<typeof StudyTable>;
 export default meta;
@@ -52,6 +65,8 @@ export const Default: Story = {
       "검사 식별자",
       "Modality",
       "시리즈",
+      "이 브라우저 원본",
+      "서버 목록",
       "작업 상태",
     ]) {
       await expect(
@@ -63,6 +78,8 @@ export const Default: Story = {
     await expect(rows[1]).toHaveTextContent("2026.11.02");
     await expect(rows[1]).toHaveTextContent("3개");
     await expect(rows[1]).toHaveTextContent("작업 중");
+    await expect(rows[1]).toHaveTextContent("원본 있음");
+    await expect(rows[1]).toHaveTextContent("반영됨");
     await expect(rows[2]).toHaveTextContent("MR, SR");
     const open = canvas.getByRole("link", { name: "SYN-CT-001 검사 열기" });
     await expect(open).toHaveAttribute("href", "/studies/2.25.1");
@@ -73,6 +90,181 @@ export const Default: Story = {
     await userEvent.tab();
     await expect(open).toHaveFocus();
   },
+};
+
+/** 최초 HTML(서버 목록): 이 브라우저 원본·작업 상태는 아직 모른다. 열린다고 표시하지 않는다 */
+export const CheckingLocal: Story = {
+  args: {
+    items: [
+      row({
+        workStatus: "checking",
+        localOriginals: 0,
+        originals: { kind: "checking" },
+        sync: { kind: "checking" },
+      }),
+    ],
+  },
+  play: async ({ canvas }) => {
+    const [, first] = canvas.getAllByRole("row");
+    await expect(first).toHaveTextContent("원본 확인 중");
+    await expect(canvas.queryByRole("link", { name: /검사 열기/ })).toBeNull();
+    await expect(
+      canvas.getByRole("button", { name: "SYN-CT-001 검사 열기" }),
+    ).toBeDisabled();
+  },
+};
+
+/** 같은 계정의 새 브라우저: 서버 검사 정보는 보이지만 원본이 없다 */
+export const ServerOnlyMissing: Story = {
+  args: {
+    items: [
+      row({
+        workStatus: "unknown",
+        localOriginals: 0,
+        originals: { kind: "missing", total: 3 },
+        sync: { kind: "synced" },
+      }),
+    ],
+  },
+  play: async ({ canvas, args, userEvent }) => {
+    const [, first] = canvas.getAllByRole("row");
+    await expect(first).toHaveTextContent("원본 없음");
+    await expect(first).toHaveTextContent("이 브라우저 기록 없음");
+    await expect(first).not.toHaveTextContent("미작업");
+    await expect(canvas.queryByRole("link", { name: /검사 열기/ })).toBeNull();
+    const reimport = canvas.getByRole("button", {
+      name: "SYN-CT-001 원본 가져오기",
+    });
+    await userEvent.tab();
+    await expect(reimport).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onImportOriginals).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const PartialOriginals: Story = {
+  args: {
+    items: [
+      row({
+        originals: { kind: "partial", present: 1, total: 3 },
+        localOriginals: 1,
+      }),
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("일부 원본 1/3")).toBeVisible();
+    // 있는 원본은 열 수 있고, 없는 원본도 다시 가져올 수 있다
+    await expect(
+      canvas.getByRole("link", { name: "SYN-CT-001 검사 열기" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "SYN-CT-001 원본 가져오기" }),
+    ).toBeVisible();
+  },
+};
+
+/** 새 브라우저에서 서버 기록에 없는 영상만 가져왔고 반영이 실패한 경우: 원본 없음으로 보이지 않고 열 수 있다 */
+export const LocalOriginalsNotOnServer: Story = {
+  args: {
+    items: [
+      row({
+        workStatus: "untouched",
+        originals: { kind: "missing", total: 1 },
+        localOriginals: 1,
+        sync: { kind: "failed", reason: "unavailable" },
+      }),
+    ],
+  },
+  play: async ({ canvas }) => {
+    const [, first] = canvas.getAllByRole("row");
+    await expect(first).toHaveTextContent("서버 영상 0/1 · 이 브라우저 1개");
+    await expect(first).not.toHaveTextContent("원본 없음");
+    await expect(first).toHaveTextContent("미작업");
+    await expect(
+      canvas.getByRole("link", { name: "SYN-CT-001 검사 열기" }),
+    ).toHaveAttribute("href", "/studies/2.25.1");
+  },
+};
+
+export const MismatchedOriginals: Story = {
+  args: {
+    items: [
+      row({
+        originals: { kind: "mismatch", mismatched: 1, present: 2, total: 3 },
+      }),
+    ],
+  },
+  play: async ({ canvas }) =>
+    expect(canvas.getByText("내용 불일치 1개")).toBeVisible(),
+};
+
+/** 기존 계정 로컬 검사(서버 미반영)는 숨기지 않고 명시적으로 반영할 수 있다 */
+export const Unsynced: Story = {
+  args: { items: [row({ sync: { kind: "unsynced", count: 3 } })] },
+  play: async ({ canvas, args, userEvent }) => {
+    await expect(canvas.getByText("미반영 3개")).toBeVisible();
+    const button = canvas.getByRole("button", {
+      name: "SYN-CT-001 서버 목록에 반영",
+    });
+    await userEvent.click(button);
+    await expect(args.onSync).toHaveBeenCalledWith("2.25.1");
+  },
+};
+
+export const Syncing: Story = {
+  args: { items: [row({ sync: { kind: "syncing" } })] },
+  play: async ({ canvas }) => {
+    const [, first] = canvas.getAllByRole("row");
+    await expect(within(first!).getByRole("status")).toHaveTextContent(
+      "반영 중",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: /서버 목록에 반영|다시 시도/ }),
+    ).toBeNull();
+  },
+};
+
+export const SyncFailedRetry: Story = {
+  args: {
+    items: [row({ sync: { kind: "failed", reason: "network" } })],
+  },
+  play: async ({ canvas, args, userEvent }) => {
+    await expect(canvas.getByText("서버 반영 실패")).toBeVisible();
+    await expect(
+      canvas.getByText("네트워크 오류. 원본은 이 브라우저에 그대로 있습니다."),
+    ).toBeVisible();
+    const retry = canvas.getByRole("button", { name: "SYN-CT-001 다시 시도" });
+    retry.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onSync).toHaveBeenCalledWith("2.25.1");
+  },
+};
+
+/** 재시도해도 같은 결과인 실패는 다시 시도 버튼 없이 이유를 알린다 */
+export const SyncConflict: Story = {
+  args: {
+    items: [
+      row({
+        sync: { kind: "failed", reason: "conflict", conflict: "instance" },
+      }),
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByText(
+        "서버 기록과 같은 UID 의 내용이 달라 반영하지 않았습니다.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /다시 시도/ }),
+    ).toBeNull();
+  },
+};
+
+export const ServerListUnavailable: Story = {
+  args: { items: [row({ sync: { kind: "unknown" } })] },
+  play: async ({ canvas }) =>
+    expect(canvas.getByText("서버 목록 확인 불가")).toBeVisible(),
 };
 
 export const Loading: Story = {
