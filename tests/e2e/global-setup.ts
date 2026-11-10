@@ -8,6 +8,7 @@ import {
   writeSecretFile,
 } from "../../scripts/auth/local-supabase";
 import {
+  conflictingSingleImage,
   ctStack,
   jpegLsImage,
   multiframeSpatial,
@@ -57,6 +58,8 @@ export default async function globalSetup() {
     invalid: [nonDicom()],
     mr: await mrStack(),
     uncalibrated: [await otherStudyImage()],
+    // single 과 SOP UID 는 같고 내용이 다른 파일(서버 목록 digest 불일치·충돌)
+    conflict: [await conflictingSingleImage()],
   };
   for (const [group, files] of Object.entries(groups)) {
     const dir = path.join(FIXTURE_DIR, group);

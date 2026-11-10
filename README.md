@@ -71,6 +71,22 @@ mise exec -- pnpm supabase:stop
 - 서비스 비밀키는 관리 스크립트가 실행 중에만 `supabase status` 에서 읽고 파일·로그·브라우저 번들에 넣지 않습니다. 관리 스크립트는 로컬 주소(127.0.0.1·localhost)가 아니면 동작하지 않습니다.
 - `.env.local` 이 없거나 값이 잘못되면 앱은 인증을 우회하지 않고 503 으로 실패합니다.
 
+### 서버 검사 목록(메타데이터) DB 준비
+
+검사 목록은 계정별로 로컬 Supabase Postgres 에 **목록용 메타데이터만** 저장합니다(RLS 로 본인 행만 읽고 쓸 수 있음). 원본 DICOM·픽셀·작업 결과(JSON)는 서버로 보내지 않고 계정별 IndexedDB 에만 둡니다. 스키마는 `supabase/migrations/` 의 migration 파일로 관리합니다.
+
+```bash
+# 새 스택(볼륨 없음): 처음 시작할 때 migration 이 자동 적용됩니다.
+mise exec -- pnpm supabase:start
+
+# 기존 스택(이미 계정·자료가 있는 볼륨): 아직 적용하지 않은 migration 만 적용합니다(db reset 불필요, 기존 계정·자료 보존).
+mise exec -- supabase migration up --local
+mise exec -- supabase migration list --local   # Local·Remote 열이 모두 채워져 있으면 적용 완료
+```
+
+- `supabase db reset`·볼륨 삭제는 기존 계정과 자료를 지우므로 쓰지 않습니다.
+- 앱(Next 서버)은 서비스 비밀키 없이 **로그인한 사용자 세션**으로 Data API 를 호출하고, 권한은 DB 의 RLS·최소 GRANT·`SECURITY INVOKER` 함수가 판정합니다.
+
 `pnpm-workspace.yaml`의 `patchedDependencies`가 Cornerstone 빌드 호환 패치를 적용합니다. `patches/`와 잠금 파일을 함께 유지하고, `node_modules`를 직접 수정하지 않습니다.
 
 ## 2. 앱 실행
@@ -139,19 +155,21 @@ mise exec -- pnpm storybook
 
 기능·수정 작업은 시나리오와 실패 테스트를 먼저 작성하고, 의도한 실패를 확인한 뒤 구현합니다. 테스트를 통과시킨 다음 리팩터링하고 회귀 검증합니다.
 
-| 명령(`mise exec --` 뒤에 실행) | 내용                                           |
-| ------------------------------ | ---------------------------------------------- |
-| `pnpm test`                    | Vitest 단위·통합 테스트(jsdom, fake-indexeddb) |
-| `pnpm test:watch`              | 단위 테스트 감시 모드                          |
-| `pnpm test:stories`            | 실제 Chromium에서 Story 상호작용·접근성 검사   |
-| `pnpm typecheck`               | TypeScript 검사                                |
-| `pnpm lint`                    | ESLint 검사, 경고도 실패 처리                  |
-| `pnpm format:check`            | Prettier 형식 검사                             |
-| `pnpm format`                  | 파일 형식 자동 수정                            |
-| `pnpm build`                   | Next.js 프로덕션 빌드                          |
-| `pnpm build-storybook`         | Storybook 정적 빌드(`storybook-static/`)       |
-| `pnpm test:e2e`                | 앱 빌드 후 프로덕션 서버에서 E2E(3100)         |
-| `pnpm test:e2e:dev`            | 개발 서버에서 E2E(3200)                        |
+| 명령(`mise exec --` 뒤에 실행) | 내용                                                            |
+| ------------------------------ | --------------------------------------------------------------- |
+| `pnpm test`                    | Vitest 단위·통합 테스트(jsdom, fake-indexeddb)                  |
+| `pnpm test:watch`              | 단위 테스트 감시 모드                                           |
+| `pnpm test:stories`            | 실제 Chromium에서 Story 상호작용·접근성 검사                    |
+| `pnpm typecheck`               | TypeScript 검사                                                 |
+| `pnpm lint`                    | ESLint 검사, 경고도 실패 처리                                   |
+| `pnpm format:check`            | Prettier 형식 검사                                              |
+| `pnpm format`                  | 파일 형식 자동 수정                                             |
+| `pnpm build`                   | Next.js 프로덕션 빌드                                           |
+| `pnpm build-storybook`         | Storybook 정적 빌드(`storybook-static/`)                        |
+| `pnpm test:e2e`                | 앱 빌드 후 프로덕션 서버에서 E2E(3100)                          |
+| `pnpm test:e2e:dev`            | 개발 서버에서 E2E(3200)                                         |
+| `pnpm test:db`                 | 실제 로컬 Supabase(Auth·Data API)로 RLS·제약·목록 조회 검사     |
+| `pnpm db:verify-migrations`    | migration 을 새 임시 DB 에 처음부터 적용해 로컬 DB 와 정의 비교 |
 
 전체 검사 예시입니다. E2E는 자체 서버를 시작하므로 3100·3200 포트를 비워두고 빌드·E2E를 순서대로 실행합니다. E2E 는 **실행 중인 로컬 Supabase**(`pnpm supabase:start`)에 실제로 로그인합니다. 테스트 계정 A·B 는 실행마다 관리자 경로로 만들거나 비밀번호를 새로 정하며 `.local/e2e/` 에만 기록합니다. 테스트용 인증 우회는 없습니다.
 
@@ -161,6 +179,18 @@ mise exec -- pnpm test:stories
 mise exec -- pnpm test:e2e
 mise exec -- pnpm test:e2e:dev
 ```
+
+서버 목록(DB) 검사도 실행 중인 로컬 Supabase 가 필요하며 `pnpm check` 에 포함되지 않습니다.
+
+```bash
+mise exec -- pnpm test:db
+mise exec -- pnpm db:verify-migrations
+mise exec -- supabase db advisors --local --type all --level info --fail-on warn
+```
+
+- `test:db` 는 전용 합성 계정(`db-reader-a/b@example.test`, `db-review-input@example.test`)만 관리자 경로로 만들고 실제 비밀번호 로그인 JWT 로 Data API 에 직접 요청합니다. 비밀번호는 메모리에만 두고, 시작·종료 시 **그 합성 계정의 catalog 행만** 지웁니다. 다른 계정·Auth 세션·볼륨은 건드리지 않습니다.
+- `db:verify-migrations` 는 같은 로컬 Postgres 에 실행마다 고유한 임시 DB(`dicom_annotator_migration_check_<시각>_<난수>`)를 새로 만들고, 최소 auth 대역(`auth.users`·`auth.uid()`)을 둔 뒤 `supabase migration up --db-url` 로 처음부터 적용합니다. 컬럼·제약·인덱스·RLS·정책·GRANT·view·함수 정의를 로컬 DB 와 비교하고, 보안 불변식(view `security_invoker`, 함수 `SECURITY INVOKER`·`search_path` 고정, anon/PUBLIC 권한 없음, `user_metadata` 미사용)과 migration history 일치를 확인합니다. **이번 실행이 만든 임시 DB 만** 삭제하며, 시작 전에 있던 DB·클러스터 공용 role·로컬 DB 는 바꾸지 않습니다. 동시에 여러 번 실행해도 서로 간섭하지 않습니다. CLI 오류 메시지에는 연결 비밀번호를 남기지 않습니다.
+- E2E 는 테스트마다 합성 계정 A·B 의 서버 목록 행만 비우고 시작합니다(`tests/e2e/fixtures.ts`). 서버 DB 는 브라우저 컨텍스트와 달리 테스트 사이에 남기 때문입니다.
 
 `pnpm check`에는 Story 테스트와 E2E가 포함되지 않습니다. 위처럼 별도로 실행해야 합니다. 자동 E2E는 브라우저의 별도 테스트 컨텍스트를 사용하며, 평소 접속한 3000 포트의 사용자 저장소를 사용하지 않습니다.
 
@@ -184,6 +214,8 @@ mise exec -- pnpm exec vitest run --project unit src/entities/study-work
 
 ### 테스트 데이터와 실패 분석
 
+- 개발 서버 E2E(`test:e2e:dev`) 로그에 `The destination stream errored while writing data.` 가 남습니다. 일부는 `router.refresh()` 의 RSC 응답 중 테스트 브라우저를 닫은 직후 발생함을 확인했으며, 나머지는 요청별 원인을 확정하지 않았습니다. 최종 dev E2E 는 통과했고 프로덕션 E2E 에서는 0건이었습니다. 자세한 근거와 제한은 `docs/reviews.md` 이슈 #5 절에 있습니다. 서버 목록 E2E 는 페이지 오류·예상하지 못한 콘솔 오류를 실패로 봅니다.
+
 - 합성 DICOM 생성 코드: `tests/fixtures/dicom/`.
 - E2E 시작 시 `tests/e2e/global-setup.ts`가 `tests/e2e/.fixtures/`를 다시 생성합니다. 이 생성 폴더에 수동 샘플을 보관하지 마세요.
 - 자동 검증에는 합성 단일 CT, 다중 CT/MR, 멀티프레임, JPEG-LS, 보정 없는 영상과 잘못된 파일 등이 사용됩니다.
@@ -200,7 +232,15 @@ mise exec -- pnpm exec playwright show-trace <실패-출력에-표시된-trace.z
 - **가져오기**: 여러 파일 선택·폴더 선택·드래그앤드롭(폴더 포함). 확장자가 아닌 DICOM Part 10 내용으로 판별, 검사→시리즈→영상·프레임 구성, 파일별 성공·중복·충돌·실패 이유, 같은 SOP UID 다른 내용은 덮어쓰지 않음(충돌), 미지원 transfer syntax·필수 UID 누락·NumberOfFrames 불일치 거부.
 - **정렬**: ImagePositionPatient 를 슬라이스 법선에 투영해 정렬(입력 순서 무관한 전순서), 불가하면 InstanceNumber → SOP UID. 파일 이름 순서는 쓰지 않음.
 - **멀티프레임**: 파일 1개·프레임 N개. Enhanced 기능 그룹(Shared/PerFrame)의 위치·방향·간격을 읽고 프레임별로 보존. 공간/시간/판단 불가를 구분.
-- **검사 목록**: 날짜·식별자·modality·시리즈 수·작업 상태(미작업/작업 중/완료), 검색과 상태 필터.
+- **검사 목록**: 날짜·식별자·modality·시리즈 수·이 브라우저 원본·서버 목록 반영·작업 상태(미작업/작업 중/완료), 검색과 상태 필터. 계정의 서버 목록은 서버에서 렌더링되어 **최초 HTML 에 행이 들어갑니다**(JS 없이도 보임).
+- **서버 목록(계정별 메타데이터)**:
+  - 보내는 값(명시 allowlist): 검사·시리즈·영상 UID, 검사 날짜, 검사 설명, Study ID, Accession Number, modality, 시리즈 번호·설명, 원본 파일 SHA-256 digest. **환자 ID·이름 등 인구통계, 영상 기하, 픽셀, 파일 크기, 전체 헤더, 작업 결과는 보내지 않습니다.** Route Handler 는 본문을 최대 512KiB 까지만 읽고 키·형식·길이·개수를 검증합니다. DB 도 RPC·CHECK 로 키·타입·필드 제약과 배치 개수를 검증합니다. 큰 검사는 요청당 영상 1000개·시리즈 200개 이하로 나눠 보냅니다.
+  - 가져오기가 끝나면 이 브라우저에 저장된 검사의 메타데이터를 자동으로 반영합니다. 반영이 실패해도 원본은 그대로이며 "서버 반영 실패"와 이유를 보여 주고, 네트워크·서버 오류는 "다시 시도"로 멱등하게 다시 보냅니다.
+  - **기존(이 기능 이전) 로컬 검사**는 숨기지 않고 "미반영 N개"로 표시하며, 행의 "서버 목록에 반영" 버튼을 눌러야 보냅니다(자동 전송 없음). 로그인 이전의 익명 저장소는 여전히 열거나 옮기지 않습니다.
+  - 같은 SOP UID 의 내용(digest)이 서버 기록과 다르면 기존 서버 기록을 보존하고 "내용 불일치"·반영 실패로 알립니다(새로고침 후에도 유지).
+  - 계정이 바뀐 뒤 도착한 이전 화면의 요청은 서버가 현재 계정과 요청의 기대 계정을 비교해 거부합니다(권한 근거는 Auth 서버가 확인한 현재 계정뿐).
+- **다른 브라우저·새 브라우저**: 같은 계정이면 서버 검사 정보가 보이지만 원본은 이 브라우저에 없으므로 "원본 없음"과 "원본 가져오기"를 보여 주고 "열기"는 숨깁니다. 일부만 있으면 "일부 원본 n/m", 서버 기록에 없는 영상만 있으면 "서버 영상 0/m · 이 브라우저 k개"(열 수 있음)로 구분합니다. 작업 결과는 아직 기록한 브라우저에만 있으므로, 이 브라우저에 원본도 작업 기록도 없는 서버 검사는 "미작업"이 아니라 "이 브라우저 기록 없음"으로 표시합니다.
+- **식별자·시리즈 수 기준**: 이 브라우저에 원본이 있는 검사는 기존과 같이 Accession → Study ID → 환자 ID → Study UID 순으로 식별자를 정합니다. 서버에만 있는 검사는 환자 ID 를 서버에 두지 않으므로 Accession → Study ID → Study UID 순입니다(같은 검사라도 Accession·Study ID 가 없으면 브라우저마다 식별자가 다를 수 있고, 환자 ID 검색은 원본이 있는 브라우저에서만 맞습니다). 시리즈 수는 서버 목록과 이 브라우저 원본 시리즈의 합집합(UID 기준)입니다.
 - **영상 작업 화면**: Cornerstone3D StackViewport 로 실제 픽셀 렌더링(JPEG-LS 등 WASM 코덱은 Worker 에서 디코딩), 실제 영상 썸네일, 휠·슬라이더·버튼 이동(단일 영상은 탐색 숨김), 이동·확대·밝기대비(W/L)·반전·90° 회전·화면 맞춤·초기화.
 - **측정·주석**: 공식 Cornerstone Tools 의 길이·각도·타원 ROI·닫힌 윤곽(PlanarFreehandROI)·화살표 메모. 핸들 이동, 좌표 직접 편집, 표시·숨김, 삭제, 실행 취소·다시 실행.
 - **측정 단위**: 이미지 좌표 × 해당 프레임 PixelSpacing[행, 열]. 보정이 없거나 0·음수·NaN 이면 px/px² 로 표시하고 안내. 비등방 간격의 각도·회전 타원도 물리 좌표로 계산.

@@ -14,7 +14,10 @@ export type {
   ImportStatus,
 } from "./model/types";
 export { ImportActions } from "./ui/import-actions";
-export type { ImportActionsProps } from "./ui/import-actions";
+export type {
+  ImportActionsHandle,
+  ImportActionsProps,
+} from "./ui/import-actions";
 export { ImportDropZone } from "./ui/import-drop-zone";
 export type { ImportDropZoneProps } from "./ui/import-drop-zone";
 export { ImportResultList } from "./ui/import-result-list";

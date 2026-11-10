@@ -77,6 +77,9 @@ const config = [
                 "@/widgets/*/*",
                 "@/features/*/*",
                 "@/entities/*/*",
+                // 승인된 서버 전용 공개 진입점 하나만 허용한다(그 하위 경로는 다시 금지)
+                "!@/entities/dicom-study/server",
+                "@/entities/dicom-study/server/**",
               ],
               message:
                 "슬라이스는 공개 진입점(@/<layer>/<slice>)으로만 import 합니다.",

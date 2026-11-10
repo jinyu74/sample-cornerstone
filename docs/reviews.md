@@ -1,5 +1,16 @@
 # Codex 검수 기록
 
+## 이슈 #5 진행 중: 메타데이터·RLS·SSR 목록
+
+- PR #4는 사용자 명시 요청으로 head66d63a2를 병합했고, main41fb4d6 기준 `feat/5-study-catalog-ssr`를 생성했다. 이슈 https://github.com/jinyu74/sample-cornerstone/issues/5 . 이번 후속 PR의 병합 허가는 별도다.
+- Opus 계획 `.local/issue5/plan.md`: allowlist 메타 투영, owner를 포함한 검사/시리즈/인스턴스 정규화·RLS·SECURITY INVOKER RPC/view, 실제JWT Data API 권한 검증, 최초HTML SSR, 브라우저 원본가용성·실패재시도, 합성계정 자료격리·별도임시DB migration검증. 기존 Auth/볼륨 reset 없이 진행한다.
+- 감독 독립 Red: 최초 도메인2파일36개 미구현 실패(`codex-red-domain.log`), 추가 다중시리즈 상한 회귀1개 실패(`codex-red-series-limit.log`). 현재 구현·검수 완료가 아니다. 감독 회귀는 `catalog-metadata.review.test.ts`이며 각 청크가 수신 상한과 parse를 통과하고 모든SOP가 정확히1회 포함되는 조건이다.
+- 도메인3파일40개를 감독이 독립 재실행해 Green을 확인했다. 실제DB25개 Green·migration재현 로그를 확인했고, 공개RPC가unknown필드/객체타입을받는 경로를 감독 `catalog-input.review.db.test.ts` 실제JWT4개 Red로재현했다. SQL검증보완후 감독4개독립Green을확인했다. 합성검수계정은 기존DB/E2E계정과분리했다.
+- `verify-migrations.ts`의 시작전 고정이름DB강제삭제를 CLI대역 소유권회귀로 Red 확인했다(`codex-red-migration-ownership.log`). 실제DB를삭제하지않았고, 실행별고유임시DB·CREATE성공한소유DB만정리하도록 수정지시했다. 최종 검수완료는 아니다.
+
+- 실제DB전체4파일40개와 migration 재현을 감독이 독립 실행해 통과했다. 검증 도구 소유권 수정 후에는 성공했으며, 명령 실패의 raw 오류에 DB URL 비밀번호가 포함되는 경계도 합성 비밀값의 CLI 대역으로 추가 Red 확인해 보완 지시했다.
+- 동기화 중 같은 검사에 새 원본을 추가한 뒤 두 번째 반영 요청을 보내면 inFlight 중복 억제가 새 스냅샷까지 버리는 누락을 감독 회귀로 재현했다(`use-catalog-sync.review.test.tsx`, `codex-red-sync-during-import.log`). 단순 중복 호출 억제와 새 자료 이어 반영을 함께 유지하도록 수정 지시했다.
+
 ## 이슈 #3 사전 검수: Supabase 인증 전환
 
 - 작업 브랜치 `feat/3-supabase-auth`, 기준 main `23fbac0b`. 로컬 Supabase와 관리자 생성 이메일·비밀번호 계정은 사용자 확정이다. 영상·결과의 서버 저장 전환은 후속 범위다.
@@ -104,3 +115,36 @@
 - `use-viewer-tools.ts`에서 모든 도구의 bindings를 명시적으로 해제한 뒤 보조 버튼과 현재 도구를 다시 연결하도록 수정했다. 확대·이동 이후 측정5종/선택/밝기대비/이동 전환 회귀10개를 개발 브라우저에서 통과했다.
 - Codex 독립 실행: 단위·통합232개, Story92개, typecheck·lint(경고0)·format 검사, 프로덕션 빌드 통과. 프로덕션 전체E2E30/30 통과(기존20개+도구 전환10개), 개발 도구 전환10/10 통과. 전환 흐름의 브라우저 pageerror·console error가 없었으며 스크린샷은 `/tmp/herdr-tool-switching-fixed.png`다.
 - 갱신된 미리보기는 `http://127.0.0.1:3000`, PID파일은 `.local/preview.pid`, 로그는 `.local/preview.log`다. 이전 Opus scratchpad의 preview.pid는 갱신 전 프로세스이므로 사용하지 않는다.
+
+## 이슈 #5 — 검사 메타데이터·RLS·SSR 목록
+
+로그는 `.local/issue5/`(git 제외). 감독 회귀(`*.review.test.*`)는 기대값을 유지했다.
+
+- **도메인**: 투영·검증·원본 비교 36건 Red(`red-domain.log`, 감독 독립 확인) → 40/40. 감독 회귀 `catalog-metadata.review.test.ts`(시리즈 200개 초과 분할)를 포함해 영상·시리즈 상한을 함께 넘는 검사도 각 청크가 서버 검증·본문 상한을 통과함을 확인했다.
+- **실제 DB**: 첫 단계(테이블 없음)는 cleanup 오류로 suite 가 실행되지 않았다(`red-db.log`). 테이블·제약만 있고 RLS·권한·RPC 가 없는 단계에서 25/25 실패(`red-db-stage-a.log`): anon 읽기·쓰기 노출, B 의 owner=A 삽입 미차단 등. 이때 anon RPC 테스트가 함수 없음(404)으로 통과하는 문제를 발견해, 모든 거부 테스트가 A 의 정상 쓰기 성공을 먼저 확인하고 `42501` 코드를 요구하도록 강화했다. 감독 지적에 따라 `syncOk` 가 결과를 반환하도록 정리했다.
+- **감독 RPC 입력 회귀**(`catalog-input.review.db.test.ts`): Route 를 거치지 않는 직접 RPC 가 unknown 키·잘못된 타입을 받는 4건 Red → SQL 형태 검증 추가 → 29/29. 두 번째 migration 첫 생성본의 죽은 분기는 history 를 reverted 로 되돌리고 파일 삭제 후 재생성했다(파일·history 일치).
+- **migration 재현 검증 도구**: 감독 회귀(`migration-database-ownership.review.test.ts`)로 ① 고정 이름 임시 DB 를 시작 시 DROP 하는 문제, ② CLI 실패 시 db-url 비밀번호가 오류에 남는 문제를 재현했다. 실행별 고유 임시 DB·생성한 DB 만 정리·이름 형식 재확인, 하위 명령·종료 코드만 담은 오류로 고쳤다. 실제 검증 동시 2회 통과, live DB history·정책·role·계정 수 불변(`live-before/after.txt`).
+- **목록 조회**: 1000행 초과 검사·영상(검사 1101, 영상 2500) keyset 조회 6건 Red → Green. 같은 페이지 반복 시 멈춤은 가짜 클라이언트 단위 테스트로 검증했고, 이 테스트는 구현 뒤 작성했으므로 변형(중복 검사 제거)에서 실패함을 확인했다(`mutation-pagination.log`).
+- **동기화 hook 경합**(감독 `use-catalog-sync.review.test.tsx`): 첫 전송 중 같은 검사에 원본을 추가하면 두 번째 요청이 버려져 서버에 일부만 남고 `synced` 로 표시되던 문제. dirty 재조회·스냅샷 비교로 수정, 같은 데이터 중복 호출 1회 전송 기대 유지. 브라우저 회귀(E2E "첫 반영이 진행 중일 때…")도 추가했다.
+- **로컬 미반영 원본**(감독 `catalog-local-unsynced.review.test.tsx`): 서버 기록과 다른 영상만 가진 브라우저에서 열기가 숨겨지고 작업 상태가 '기록 없음'이 되던 문제. 서버 대비 일치도와 실제 로컬 원본 수를 분리했다. `Math.max` 로는 서로 다른 시리즈를 셀 수 없어 DTO 에 시리즈 UID 를 넣고 합집합으로 센다.
+- **충돌 유지**(감독 `build-catalog-rows.review.test.ts`): 새로고침으로 요청 결과가 사라지면 digest 충돌이 '반영됨'으로 돌아가던 문제. E2E 에 새로고침 후 불일치·반영 실패 유지·로컬 열기·서버 보존 확인을 먼저 추가해 Red(`red-e2e-persisted-conflict.log`) → 불일치를 충돌로 유도해 Green.
+- **E2E Red**: 기능 연결 전 기존 prod 빌드(`E2E_SKIP_BUILD=1`)로 새 8건이 기능 없음 때문에 실패함을 확인했다(`red-e2e-catalog.log`). 새 컨텍스트가 프로젝트 기본 로그인 상태를 물려받아 B 로그인 화면이 열리지 않은 테스트 준비 오류는 빈 storageState 명시로 고쳤다.
+- **dev Cache-Control**: dev 에서 `private` 검사가 실패했다. 설치된 `next/dist/server/base-server.js` 의 `if (dev) res.setHeader("Cache-Control", "no-store")`(감독 직접 확인)로 dev 가 페이지 응답 헤더를 덮어쓰는 프레임워크 계약 차이다. 두 모드 모두 `no-store`·`public` 없음을 요구하고, `private` 는 prod 에서만 요구한다. 계정·SSR 행 검사는 그대로다.
+- **콘솔 검증**: 새 spec 은 pageerror 와 콘솔 오류를 모두 실패로 본다. 일부러 abort/503 을 만드는 두 테스트에서만 그 요청의 리소스 로그 패턴을 등록한다(감독 지적으로 일괄 예외에서 범위 축소).
+- **dev stream 경고(남는 제한)**: dev E2E 서버 로그에 `The destination stream errored while writing data.` 가 남는다(최종 dev 58/58 실행에서 17건, prod 0건, 이전 이슈 dev 0건). 확정한 증거(`stream-diag-evidence.log`): 새 브라우저 페이지가 동기화 뒤 `router.refresh` RSC 요청(`/`)을 보낸 뒤 완료·실패 이벤트 없이 테스트가 컨텍스트를 닫았고, 그 직후 서버 경고가 찍혔다. 닫기 전 `networkidle` 을 기다리면 같은 조합(4·5번)에서 0건이 됐다(`stream-diag.log` 반복). 남는 제한: 나머지 경고를 요청 단위로 하나씩 대응시키지는 않았다. 기존 spec 에서도 가져오기 직후 다른 화면으로 이동하는 흐름이 같은 방식으로 refresh 를 끊는 것으로 추정한다. 해당 테스트들의 브라우저 pageerror·SSR 응답 실패는 없었고, 서버 로그는 필터링하지 않았다.
+- **Opus 최종 실행**: 단위 524, Story(변경 파일) 31, 실제 DB 40, typecheck·lint·format, 앱 빌드, prod E2E 58/58(`e2e-prod-1.log`, 기능 연결 직후 빌드, 그 뒤 충돌 유지 수정은 dev 로만 확인), dev E2E 58/58(`e2e-dev-final.log`). 마지막 prod 빌드·prod E2E·화면 QA·Storybook 빌드는 감독이 실행한다.
+
+### 이슈 #5 감독 최종 사전 검수
+
+- 직접 실행: `pnpm test` 78파일525개, `test:stories` 28파일121개, `test:db` 4파일40개, typecheck·lint(경고0)·format, 앱/Storybook build, migration 재현, local advisors(No issues), 최종 빌드의 전체 prod E2E58/58. 로그 `.local/issue5/codex-*-final.log`. dev 전체58/58은 Opus 실행 로그를 확인했다.
+- Browser plugin이 없어 프로젝트 Playwright로 직접 QA했다. 데스크톱1440×1000·모바일390×844 목록, 합성 CT 가져오기·메타데이터 반영·영상 렌더, 새 브라우저의 원본 없음/작업 기록 없음/열기 차단, JS 없는 최초HTML 행과 no-store를 확인했다. 페이지/콘솔 오류0, 문서 가로 넘침0. `.local/issue5/codex-browser-qa.log`, `qa-*.png`를 시각 확인했다. 미리보기3000은 최종 빌드로 유지하고 Storybook dev는 실행하지 않았다.
+- 충돌 유지 수정 후 감독 단위525개와 전체prod58개를 다시 실행했다. prod E2E와 미리보기 로그에는 destination stream 오류0건이다. dev17건의 제한은 위와 같다. README의 설명도 확인된 사실과 미확정 원인을 구분했다.
+- PR 오픈 전 미해결 사전 검수 지적은 없다. PR 이후 별도 Codex가 현재 head 전체 merge diff를 리뷰해야 하며 사용자 병합 허가는 아직 없다.
+
+### PR #6 독립 리뷰
+
+- 별도 Herdr Codex 리뷰어가 `review-agent` 스킬을 실제로 읽고 main/upstream·merge-base부터 전체76파일과 관련 호출·테스트·SQL을 검토했다. head `18f231c5b751c60db5a10edf3699ae82eaf0e828`, 판정 **No findings**. 보고할 구체적인 도입 결함이 없으며 병합 허가는 아니다.
+- 리뷰어 직접 실행은 unit522/525·diff 검사 통과. 나머지3개는 기존 환경 설정 테스트의 임시 디렉터리 생성이 읽기 전용 sandbox EPERM으로 차단됐다. 감독의 같은 런타임 전체525개 통과와 구분한다. 리뷰어가 DB·앱/Story 빌드·E2E·브라우저 QA를 재실행한 것은 아니다.
+- dev stream17건 중 일부만 컨텍스트 종료와 대응되며 나머지 원인은 미확정이다. 클라우드·HTTPS·다른 브라우저·임상 대용량도 미검증이다.
+- 같은 계정 결과 댓글: https://github.com/jinyu74/sample-cornerstone/pull/6#issuecomment-6629285255 . 정식 GitHub Approve review가 아니며 사용자 병합 요청은 아직 없다. 이 기록을 포함한 문서 변경 이후 head도 재검토하고 최신 결과는 PR 댓글로 남긴다.
+- Codex91%에서 감시기가 중단한 뒤 2026-11-04 20:19 KST 실제0% 회복을 확인해 같은 세션으로 재개했다. 리뷰는 중단 직전에 완료됐으므로 반복 구현을 하지 않고 판정·댓글·재개 기록을 복구했다.
