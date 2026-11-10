@@ -136,13 +136,36 @@ async function existing(target: string) {
   }
 }
 
+/** errno 코드·syscall 이 있는 OS 오류인지(프로그래밍 오류·제어 신호와 구분) */
+function isSystemError(error: unknown): boolean {
+  const candidate = error as NodeJS.ErrnoException | null;
+  return (
+    candidate instanceof Error &&
+    typeof candidate.code === "string" &&
+    typeof candidate.syscall === "string"
+  );
+}
+
+/**
+ * 저장 루트 검사용 lstat. 없으면 null, OS 오류(EACCES 등)는 저장소 오류(storage-unavailable/full)로 정규화하고
+ * 그 밖의 오류는 그대로 던진다. 오류를 "없음"으로 바꾸지 않아 검사가 열린 채 통과하지 않는다(fail-closed).
+ */
+async function inspect(target: string) {
+  try {
+    return await existing(target);
+  } catch (error) {
+    if (isSystemError(error)) fsFailure(error);
+    throw error;
+  }
+}
+
 /** 경로의 모든 기존 구성요소가 실제 디렉터리이며 symlink 가 아닌지 */
 async function assertNoSymlinks(target: string) {
   const parts = target.split(path.sep).filter(Boolean);
   let current = path.parse(target).root;
   for (const part of parts) {
     current = path.join(current, part);
-    const info = await existing(current);
+    const info = await inspect(current);
     if (!info) return;
     if (info.isSymbolicLink() || !info.isDirectory()) fail("unsafe-root");
   }
@@ -171,26 +194,26 @@ async function assertOutsideForbidden(root: string, project: string) {
   const insideForbidden = new Set<string>();
   for (const dir of PROJECT_FORBIDDEN) {
     // 런타임 안전성 검사용 경로다(번들·출력 추적 대상이 아님). 없으면 Turbopack 이 프로젝트 전체를 추적한다.
-    const info = await existing(
+    const info = await inspect(
       path.join(/* turbopackIgnore: true */ project, dir),
-    ).catch(() => null);
+    );
     if (info) insideForbidden.add(identity(info));
   }
   const exactForbidden = new Set<string>();
   for (const dir of [project, homedir(), ...SYSTEM_DIRS]) {
-    const info = await existing(dir).catch(() => null);
+    const info = await inspect(dir);
     if (info) exactForbidden.add(identity(info));
   }
 
   // 기존 상위 폴더 중 프로젝트 루트와 같은 실제 폴더(대소문자 별칭 포함)가 있으면,
   // 그 폴더 기준 첫 구성요소로 아직 없는 금지 폴더(예: 빌드 전 .NEXT)도 거부한다.
-  const projectInfo = await existing(project).catch(() => null);
+  const projectInfo = await inspect(project);
   const projectId = projectInfo ? identity(projectInfo) : null;
 
   let current = root;
   let deepest = true;
   for (;;) {
-    const info = await existing(current);
+    const info = await inspect(current);
     if (info) {
       const id = identity(info);
       if (insideForbidden.has(id)) fail("unsafe-root");
@@ -283,7 +306,7 @@ export async function openOriginalStore(
 
   await assertNoSymlinks(root);
   await assertOutsideForbidden(root, project);
-  const info = await existing(root);
+  const info = await inspect(root);
   if (info) {
     if (!info.isDirectory() || !isPrivate(info)) fail("unsafe-root");
   } else {
