@@ -5,6 +5,7 @@ import { AuthServiceError, getCurrentUser } from "@/shared/auth/server";
 
 import type { CatalogSyncRequest } from "../model/catalog-metadata";
 import type { CatalogListResult } from "../model/catalog-summary";
+import { markStoredOriginals } from "../model/server-originals";
 
 import {
   CatalogUnavailableError,
@@ -12,6 +13,7 @@ import {
   readCatalogSummaries,
   submitCatalogStudy,
 } from "./catalog-repository";
+import { listStoredOriginals } from "./server-originals";
 
 /**
  * 현재 요청 계정의 서버 목록(최소 DTO). Auth 서버로 계정을 확인하고 요청별 서버 클라이언트(RLS)로 읽는다.
@@ -25,7 +27,20 @@ export async function listCatalogStudies(): Promise<CatalogListResult> {
       await createServerSupabase(),
       user.id,
     );
-    return { status: "ready", studies };
+    // 서버 보관 여부는 실제 파일로만 판정한다(경로·헤더는 props 에 넣지 않고 영상별 stored 표시만)
+    const originals = await listStoredOriginals();
+    if (originals.status === "ready")
+      return {
+        status: "ready",
+        studies: markStoredOriginals(studies, originals.stored),
+        originals: "ready",
+      };
+    return {
+      status: "ready",
+      studies,
+      originals:
+        originals.status === "unconfigured" ? "unconfigured" : "unavailable",
+    };
   } catch (error) {
     if (
       error instanceof CatalogUnavailableError ||

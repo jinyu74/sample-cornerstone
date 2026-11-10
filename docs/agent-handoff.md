@@ -1,6 +1,19 @@
 # 에이전트 작업 재개 메모
 
-## 현재 활성 작업: 이슈 #5 검사 메타데이터·RLS·SSR 목록
+## 현재 활성 작업: 이슈 #7 비공개 DICOM 원본 보관·인증 조회
+
+- 사용자 요청으로 PR #6 head8b583a1을 병합했다(main `b511637f2e53921211bfb6c91ae902d282c5e375`). 후속 이슈 https://github.com/jinyu74/sample-cornerstone/issues/7, 브랜치 `feat/7-private-dicom-originals`. 지시: `docs/tasks/7-private-dicom-originals.md`.
+- 구현·감독 사전 검수 완료 단계. 검사별 ‘서버에 원본 보관’ 버튼으로만 원본을 비공개 FS에 저장한다(자동 업로드 없음). 같은 소유자는 다른 브라우저에서 인증 API로 불러와 렌더·측정할 수 있다. DB/Storage/public에 원본을 넣지 않고 기존 allowlist metadata·RLS만 쓴다. 결과(측정/라벨/메모)는 아직 브라우저에만 있다.
+- 배포는 요청별 SSR·쿠키 인증·원본 API 때문에 동적 Node 서버와 영속 디스크를 전제한다. server-only DICOM_DATA_DIR 절대 경로, 파일256MiB·업로드동시성1 기본값(환경변수 조정). 호스팅 서비스/사양·실배포·클라우드·삭제/보존/계정별 quota는 미선택·범위 밖이다.
+- 감독 직접 최종 검사: 단위91파일641개, Story29파일135개, 실제DB5파일68개, 타입·lint(경고0)·format, 앱·Storybook build, migration 재현·advisors(No issues), 최종prod E2E65/65. dev65/65는 Opus 실행 로그를 확인했다. 로그 `.local/issue7/codex-*-final.log`.
+- 감독 실제 브라우저 QA 통과: 수동 보관 전 요청0·보관5개·루트0700/파일0600, 데스크톱1440×1000·모바일390×844(문서 가로넘침0), 새브라우저 복원→실제렌더→측정, B 접근404, JS없는 SSR 보관상태·no-store·경로미노출, 페이지/콘솔 오류0. 별도3300 서버/합성계정/고유QA루트만 사용했고3300은 종료했다. `.local/issue7/codex-browser-qa.log`, `qa-*.png`를 직접 시각 확인했다.
+- 미리보기3000은 최종 빌드로 실행 중(PID `.local/preview.pid`, 로그 `.local/preview.log`, 실제상태 재확인). git제외 .env.local에 기존 항목 보존 후 DICOM_DATA_DIR=.local/dicom-originals의 절대 경로를 추가했다. 자동 업로드는 없고 실제 samples/사용자 원본은 건드리지 않았다. Storybook dev는 실행하지 않았다.
+- 원본API의 SDK 만료정보(expires_at)를 과거로 만들어 GET/PUT의 실제Auth refresh_token 갱신·Set-Cookie·새쿠키를 검증했다. 실제 JWT 자연 만료를 기다린 검증과 다르다. dev stream경고21건의 요청별 원인은 미확정이며 최종prod/QA로그에는0건이다. 다른 브라우저엔진·클라우드/HTTPS·임상/대용량·실배포 장애는 미검증이다.
+- E2E 정리는 생성 성공한 실행의 토큰+claim 표식을 요구한다. 지정된 기존루트·실패한claim은 삭제권한을 얻지 않는다. 감독 Red(기존루트삭제·같은토큰의실패claim)와 정상정리/worker전파를 확인했다. 기존 Auth/볼륨·다른 사용자 폴더 reset 금지.
+- 정확한 현재 commit/PR·독립리뷰 진행은 GitHub와 `.local/issue7/supervisor-status.json`에서 확인한다(이 문서는 커밋 당시 사전검수 기록). 감독이 commit/push/PR을 관리하고 별도 codex-reviewer가 review-agent로 전체 merge diff를 읽기전용 검토한다. 후속 PR의 main 병합 허가는 아직 없으며, 사용자가 직접 하거나 해당 PR/head에 명시적으로 요청할 때만 한다. auto-merge 금지.
+- 전체 앱 후속 범위인 작업 결과 서버DB·클라우드 연결은 남아 있다. 대화를 clear하거나 전체 앱 목표 완료로 오인하지 않는다. 사용량 감시기는>90%시 체크포인트/같은세션보존, reset시각과 실제잔여회복을 확인한 뒤 재개한다.
+
+## 이전 완료 단계: 이슈 #5 검사 메타데이터·RLS·SSR 목록
 
 - 사용자 요청 “머지 병합 후 다음 진행을 계속 하도록 한다.”에 따라 PR #4 head `66d63a27166b8d19470182507da577a0fb02be8e`를 병합했다. 병합 요청 기록: https://github.com/jinyu74/sample-cornerstone/pull/4#issuecomment-6624132421 . main merge commit `41fb4d60cce0bab0a6fe893e54233ed13d611e9e`.
 - 새 이슈: https://github.com/jinyu74/sample-cornerstone/issues/5 . 브랜치 `feat/5-study-catalog-ssr`, 기준은 위 main. 상세 지시와 인수 조건: `docs/tasks/5-study-catalog-ssr.md`.

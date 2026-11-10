@@ -51,7 +51,9 @@ function noStore(response: NextResponse): NextResponse {
 
 export const config = {
   // 정적 자산·코덱(wasm)·이미지 최적화는 제외하고 페이지·인증 경로에서만 실행한다.
+  // 원본 업·다운로드(api/originals/)는 제외한다: Proxy 가 실행되면 본문이 복제·메모리 버퍼링되고
+  // 10MB 를 넘으면 잘린다(next/dist/server/body-streams.js). 이 경로의 Route 가 Auth 를 직접 검증한다.
   matcher: [
-    "/((?!_next/static|_next/image|cornerstone/|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|wasm|js|map)$).*)",
+    "/((?!_next/static|_next/image|cornerstone/|api/originals/|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|wasm|js|map)$).*)",
   ],
 };

@@ -20,6 +20,9 @@ const local: StudyTableRow = {
   originals: { kind: "complete", total: 3 },
   localOriginals: 3,
   sync: { kind: "synced" },
+  serverOriginals: { kind: "summary", stored: 3, total: 3 },
+  uploadableOriginals: 0,
+  downloadableOriginals: 0,
 };
 const other: StudyTableRow = {
   studyInstanceUid: "2.25.2",
@@ -31,6 +34,9 @@ const other: StudyTableRow = {
   originals: { kind: "complete", total: 1 },
   localOriginals: 1,
   sync: { kind: "synced" },
+  serverOriginals: { kind: "summary", stored: 0, total: 1 },
+  uploadableOriginals: 1,
+  downloadableOriginals: 0,
 };
 const row = (overrides: Partial<StudyTableRow>): StudyTableRow => ({
   ...local,
@@ -46,6 +52,8 @@ const meta = {
     getStudyHref: (uid: string) => `/studies/${uid}`,
     onSync: fn(),
     onImportOriginals: fn(),
+    onUploadOriginals: fn(),
+    onDownloadOriginals: fn(),
   },
 } satisfies Meta<typeof StudyTable>;
 export default meta;
@@ -67,6 +75,7 @@ export const Default: Story = {
       "시리즈",
       "이 브라우저 원본",
       "서버 목록",
+      "서버 원본",
       "작업 상태",
     ]) {
       await expect(
@@ -265,6 +274,67 @@ export const ServerListUnavailable: Story = {
   args: { items: [row({ sync: { kind: "unknown" } })] },
   play: async ({ canvas }) =>
     expect(canvas.getByText("서버 목록 확인 불가")).toBeVisible(),
+};
+
+/** 검사별 서버 원본 보관·불러오기는 그 행의 버튼을 누를 때만 그 검사에 대해 시작한다 */
+export const ServerOriginalsActions: Story = {
+  args: {
+    items: [
+      row({
+        serverOriginals: { kind: "summary", stored: 1, total: 3 },
+        uploadableOriginals: 2,
+        downloadableOriginals: 0,
+      }),
+      row({
+        studyInstanceUid: "2.25.9",
+        identifier: "SYN-NEW-BROWSER",
+        localOriginals: 0,
+        originals: { kind: "missing", total: 3 },
+        workStatus: "unknown",
+        serverOriginals: { kind: "summary", stored: 3, total: 3 },
+        uploadableOriginals: 0,
+        downloadableOriginals: 3,
+      }),
+    ],
+  },
+  play: async ({ canvas, args, userEvent }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "SYN-CT-001 서버에 원본 보관" }),
+    );
+    await expect(args.onUploadOriginals).toHaveBeenCalledWith("2.25.1");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "SYN-NEW-BROWSER 서버에서 원본 불러오기",
+      }),
+    );
+    await expect(args.onDownloadOriginals).toHaveBeenCalledWith("2.25.9");
+    await expect(canvas.getByText("보관됨 3/3")).toBeVisible();
+  },
+};
+
+/** 이 브라우저 원본 확인 전(최초 HTML)에는 보관 수만 보이고 동작은 비활성 */
+export const ServerOriginalsChecking: Story = {
+  args: {
+    items: [
+      row({
+        workStatus: "checking",
+        localOriginals: 0,
+        originals: { kind: "checking" },
+        sync: { kind: "checking" },
+        serverOriginals: { kind: "summary", stored: 3, total: 3 },
+        uploadableOriginals: 0,
+        downloadableOriginals: 0,
+      }),
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("보관됨 3/3")).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", {
+        name: /서버에서 원본 불러오기|서버에 원본 보관/,
+      }),
+    ).toBeNull();
+  },
 };
 
 export const Loading: Story = {

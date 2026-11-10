@@ -2,15 +2,22 @@ import {
   type CatalogStudySummary,
   compareCatalogStudy,
   compareUid,
+  summarizeServerOriginals,
   formatDicomDate,
   type ListWorkStatus,
   type OriginalsView,
+  type ServerOriginalsAvailability,
   type StudyGroup,
   toStudyListItem,
   type WorkStatus,
 } from "@/entities/dicom-study";
+import type { OriginalTransferState } from "@/features/server-originals";
 import type { CatalogSyncState } from "@/features/sync-catalog";
-import type { StudyTableRow, SyncView } from "@/widgets/study-table";
+import type {
+  ServerOriginalsView,
+  StudyTableRow,
+  SyncView,
+} from "@/widgets/study-table";
 
 export interface LocalCatalog {
   status: "loading" | "ready" | "error";
@@ -21,7 +28,11 @@ export interface LocalCatalog {
 
 export interface BuildCatalogRowsInput {
   server:
-    | { status: "ready"; studies: readonly CatalogStudySummary[] }
+    | {
+        status: "ready";
+        studies: readonly CatalogStudySummary[];
+        originals?: ServerOriginalsAvailability;
+      }
     | { status: "unavailable" };
   local: LocalCatalog;
   works: {
@@ -29,6 +40,8 @@ export interface BuildCatalogRowsInput {
     statuses: ReadonlyMap<string, WorkStatus>;
   };
   sync: ReadonlyMap<string, CatalogSyncState>;
+  /** 이번 화면에서 시작한 원본 보관·불러오기 상태(없으면 빈 맵) */
+  transfers?: ReadonlyMap<string, OriginalTransferState>;
 }
 
 const EMPTY = new Map<string, string>();
@@ -47,7 +60,12 @@ export function buildCatalogRows({
   local,
   works,
   sync,
+  transfers = new Map(),
 }: BuildCatalogRowsInput): StudyTableRow[] {
+  const originalsAvailability =
+    server.status === "ready"
+      ? (server.originals ?? "unavailable")
+      : "unavailable";
   const serverStudies =
     server.status === "ready"
       ? new Map(server.studies.map((study) => [study.studyInstanceUid, study]))
@@ -110,8 +128,35 @@ export function buildCatalogRows({
           modalities: remote!.modalities,
           seriesCount: remote!.seriesCount,
         };
+    // 서버 원본 보관: 실제 서버 파일 판정(stored)과 이 브라우저 원본으로 보관·불러오기 후보를 센다
+    const transfer = transfers.get(uid);
+    let serverOriginals: ServerOriginalsView;
+    let uploadableOriginals = 0;
+    let downloadableOriginals = 0;
+    if (originalsAvailability !== "ready") {
+      serverOriginals = { kind: originalsAvailability };
+    } else {
+      const summary = summarizeServerOriginals(
+        remote,
+        checking || local.status !== "ready"
+          ? EMPTY
+          : (local.manifest.get(uid) ?? EMPTY),
+      );
+      serverOriginals =
+        transfer && transfer.kind !== "done"
+          ? transfer
+          : { kind: "summary", stored: summary.stored, total: summary.total };
+      if (!checking && local.status === "ready") {
+        uploadableOriginals = summary.uploadable.length;
+        downloadableOriginals = summary.downloadable.length;
+      }
+    }
+
     rows.push({
       ...base,
+      serverOriginals,
+      uploadableOriginals,
+      downloadableOriginals,
       seriesCount: seriesUnion(remote, own),
       localOriginals,
       workStatus,

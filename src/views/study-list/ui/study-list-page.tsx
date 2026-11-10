@@ -27,6 +27,7 @@ import { AppHeader } from "@/shared/ui/app-header";
 import { StudyTable } from "@/widgets/study-table";
 
 import { buildCatalogRows } from "../model/build-catalog-rows";
+import { useListOriginals } from "../model/use-list-originals";
 import { useListSync } from "../model/use-list-sync";
 
 const studyHref = (studyInstanceUid: string) =>
@@ -48,6 +49,13 @@ export function StudyListPage({ serverCatalog }: StudyListPageProps) {
     store,
     reloadLocal: catalog.reload,
   });
+  const originals = useListOriginals({
+    userId: user.id,
+    store,
+    serverCatalog,
+    manifest: catalog.manifest,
+    reloadLocal: catalog.reload,
+  });
   const importer = useDicomImport({ store, onFinished: sync.onImported });
   const importActions = useRef<ImportActionsHandle>(null);
   const [filter, setFilter] = useState<StudyFilter>({
@@ -63,8 +71,9 @@ export function StudyListPage({ serverCatalog }: StudyListPageProps) {
         local: catalog,
         works,
         sync: sync.states,
+        transfers: originals.states,
       }),
-    [serverCatalog, catalog, works, sync.states],
+    [serverCatalog, catalog, works, sync.states, originals.states],
   );
   const visible = useMemo(() => filterStudies(items, filter), [items, filter]);
   const busy = importer.phase === "running";
@@ -117,14 +126,21 @@ export function StudyListPage({ serverCatalog }: StudyListPageProps) {
           getStudyHref={studyHref}
           onSync={sync.syncStudy}
           onImportOriginals={() => importActions.current?.openFilePicker()}
+          onUploadOriginals={originals.upload}
+          onDownloadOriginals={originals.download}
         />
+        <p className="text-xs text-muted-foreground">
+          서버 원본 보관은 검사별로 선택한 DICOM 원본만 서버 비공개 폴더에
+          보관합니다. 작업 결과(측정·라벨·메모)는 아직 이 브라우저에만 저장되며
+          서버에 보관되지 않습니다.
+        </p>
       </main>
       <footer className="border-t px-4 py-4 text-xs text-muted-foreground md:px-6">
-        원본 영상과 작업 결과는 이 브라우저(IndexedDB)에만 저장되며 서버로
-        업로드되지 않습니다. 서버에는 계정별 목록용 메타데이터(검사·시리즈·영상
-        UID, 날짜, 설명, 검사 번호, modality, 파일 digest)만 저장됩니다. 사이트
-        데이터를 삭제하거나 저장 용량이 부족하면 이 브라우저의 원본이 유실될 수
-        있습니다.
+        원본 영상과 작업 결과는 이 브라우저(IndexedDB)에 저장됩니다. 서버에는
+        계정별 목록용 메타데이터(검사·시리즈·영상 UID, 날짜, 설명, 검사 번호,
+        modality, 파일 digest)와, 사용자가 “서버에 원본 보관”을 누른 검사의
+        DICOM 원본만 비공개 폴더에 보관됩니다. 작업 결과는 서버에 보관되지
+        않으므로 사이트 데이터를 삭제하면 유실될 수 있습니다.
       </footer>
     </div>
   );

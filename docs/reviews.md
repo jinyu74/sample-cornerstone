@@ -148,3 +148,44 @@
 - dev stream17건 중 일부만 컨텍스트 종료와 대응되며 나머지 원인은 미확정이다. 클라우드·HTTPS·다른 브라우저·임상 대용량도 미검증이다.
 - 같은 계정 결과 댓글: https://github.com/jinyu74/sample-cornerstone/pull/6#issuecomment-6629285255 . 정식 GitHub Approve review가 아니며 사용자 병합 요청은 아직 없다. 이 기록을 포함한 문서 변경 이후 head도 재검토하고 최신 결과는 PR 댓글로 남긴다.
 - Codex91%에서 감시기가 중단한 뒤 2026-11-04 20:19 KST 실제0% 회복을 확인해 같은 세션으로 재개했다. 리뷰는 중단 직전에 완료됐으므로 반복 구현을 하지 않고 판정·댓글·재개 기록을 복구했다.
+
+## 이슈 #7 진행 중 — 비공개 서버 원본 보관
+
+- PR #6 head8b583a1은 2026-11-10 사용자 명시 요청으로 병합했다(main `b511637`). 새 이슈 https://github.com/jinyu74/sample-cornerstone/issues/7, 브랜치 `feat/7-private-dicom-originals`. 이 후속 PR의 병합 허가는 별도다.
+- 사용자 결정: 검사별 ‘서버에 원본 보관’ 버튼(자동 업로드 없음). DB/Storage/public에 원본을 넣지 않고 서버 전용 절대 경로의 비공개 FS에 둔다. 같은 소유자는 인증 API로 다른 브라우저에서 원본을 불러온다. 동적 Node 서버와 영속 디스크를 전제하며 실배포·클라우드·결과DB·자동삭제/보존·계정별 quota는 제외했다.
+- 시작 전 감독 baseline: 단위525/525, 실제DB40/40 직접 통과(`.local/issue7/baseline-*.log`). Opus 설계·시나리오는 `.local/issue7/plan.md`, 지시서는 `docs/tasks/7-private-dicom-originals.md`.
+- 설치된 Next Proxy는 본문을 복제·버퍼링하고 기본10MB를 넘으면 잘라낸다. 원본 API는 matcher 제외 후 Route 자체 Auth/getUser·기대 계정·소유권·쿠키 갱신·CSRF/no-store를 검증하도록 계획했다. 실제10MB 초과 원본 E2E로 회귀를 요구했다.
+- Opus 설정/FS 최초 Red35실패·1통과(미구현) 로그를 감독이 확인했다(`red-store.log`). 초기 구현의 설정·FS36개는 감독이 독립 실행해 통과했다(`codex-store-first.log`).
+- 감독 `original-store.review.test.ts`로 기존0755루트 거부, EEXIST에서 이름은digest이나 실제내용손상인 경우 성공차단·기존파일보존, 손상원본읽기의 정상완료차단을 실제FS에서 Red3 확인했다(`codex-red-file-integrity.log`). 읽기는 open단계에만 거부하도록 했던 초안을 계약에 맞춰 null/조회실패/stream완료전오류 모두 허용하도록 즉시 정정하고 다시 Red를 확인했다(무결성 조건은 유지). Opus 수정 후3개가 Green인 실행을 확인했다.
+- 감독 추가 Red1: OS FileHandle.write가 일부만 기록하는 실제FS 의존성 실패를 주입하면512바이트 중256바이트만 파일에 남는다(`codex-red-short-write.log`, 나머지3개통과). 실제 최종바이트 보존·부분쓰기 반복/전체쓰기·0바이트 쓰기/실패정리를 요구했다. 구현 메서드 호출 횟수는 검증하지 않는다.
+- 서버 파싱의 deflated DICOM 압축해제에도 상한을 요구했다. 기존 dicom-parser의 Node inflateRawSync는 maxOutputLength가 없어 raw본문제한만으로 팽창량이 제한되지 않는다. Node 전용 bounded inflater와 정상/상한초과 테스트를 먼저 진행하고 기존 브라우저 동작은 유지하도록 지시했다.
+- 현재 FS·Auth/Route 통합 구현/검수 중이며 전체 기능 완료가 아니다. 원본·샘플·키·로그는 git 제외 경로/합성 전용 루트만 사용한다.
+
+- 추가 감독 Red: 실제 Mac 대소문자 별칭(public/PUBLIC)으로 정적 경로 금지를 우회하는1건, 프로젝트 경로 별칭+미생성.NEXT/static 조합1건을 재현했다(`codex-red-public-alias.log`, `codex-red-project-alias.log`). 대소문자 구분 볼륨만 조건부 skip이며 현재 볼륨은 실제 실패 후 수정했다. inode/기존ancestor·미생성 경계 검증을 보완해 symlink 거부를 유지했다.
+- Proxy 제외 원본 GET/PUT의 SupabaseConfigError가 제어된503/no-store 대신 예외로 전파되는2건을 감독 테스트로 Red 확인했다(`originals-config.review.test.ts`, `codex-red-originals-config.log`). 알려진 설정 오류만 unavailable로 분류하고 Next 동적 신호/알 수 없는 오류는 무차별 삼키지 않도록 수정했다.
+- 단계2 감독 독립 실행: 전체단위89파일632개·새원본셀Story12개 통과(`codex-unit-stage2.log`, `codex-stories-originals.log`). 앞서 실제DB5파일65개(기존40+원본Route25)도 직접통과했다. 화면연결·새브라우저E2E·최종전체검수는 아직 남았다.
+- 운영 기본값은 파일256MiB를 유지하고 동시업로드1로 조정(환경변수로변경). 설정기대값을 먼저바꿔Red확인후적용했다. 버퍼/파싱/압축해제복사본 메모리 추정이며 측정값·정확한보장이 아니고 실제호스팅사양은선택하지않았다.
+
+## 이슈 #7 — 비공개 DICOM 원본 보관·인증 조회
+
+로그는 `.local/issue7/`(git 제외). 감독 회귀(`*.review.test.*`)는 기대값을 유지했다.
+
+- **설정·FS 저장소**: 35건 Red(`red-store.log`) → Green. 감독 보완(private 권한, EEXIST 내용 검증, 읽기 무결성, deflate 해제 상한)은 7+3건 Red(`red-store-2.log`, `red-inflater.log`) → Green. 감독 회귀: 0755 루트·손상 파일 재보관·보관 뒤 손상 읽기(`codex-red-file-integrity.log`), 부분 쓰기(`codex-red-short-write.log`), PUBLIC 별칭(`red-public-alias.log`), PROJECT 별칭+미생성 `.NEXT`(`red-concurrency-alias.log`) 모두 Red 확인 뒤 수정.
+- **Route 통합(실제 Auth·RLS·FS)**: 25건 Red(501 stub, `red-route.log`) → Green. 쿠키 경로만 사용자 세션 클라이언트 주입. 같은 SOP 다른 원본을 별도 요청으로 동시에 보내는 5라운드에서 매번 하나만 통과하고 파일·카탈로그 digest 가 같았다. 감독 설정 회귀(인증 설정 오류 503, `codex-red-originals-config.log`) Red 2건 → 수정.
+- **목록 DAL 권한**: owner 인자로 다른 계정 목록을 읽던 문제를 Red 2건(`red-list-auth.log`) 확인 후 현재 Auth 계정만 쓰도록 수정.
+- **SSR 보관 표시**: 실제 DB 3건 Red(`red-ssr-stored.log`) → Green(경로·환자 ID 미포함 확인).
+- **클라이언트**: 어댑터 17건·hook 8건·화면 조립 hook 4건·셀 Story 12건·테이블 Story 3건, 각각 Red 확인 뒤 구현.
+- **E2E**: 기능 연결 전 기존 빌드(11월 4일)로 새 7건이 기능 없음 때문에 실패함을 확인(`red-e2e-originals.log`, `red-e2e-cookie-refresh.log`). 쿠키 갱신 E2E 는 SDK 세션 만료 정보(expires_at)를 지난 값으로 바꿔 유도한 갱신 회귀이며 실제 JWT 자연 만료 검증이 아니다. 새 빌드에서 7/7, 전체 prod 65/65, dev 65/65.
+- **빌드 경고**: 프로젝트 경로 검사가 Turbopack 출력 추적에서 프로젝트 전체 추적을 일으켜 `turbopackIgnore` 를 붙였다. 다시 빌드해 경고 0, 원본 Route `.nft.json` 116개 중 public·src·.local·samples 0건을 확인.
+- **부하로 인한 실패(결함 아님)**: 시스템 load 24 상태의 전체 단위 실행에서 vitest worker 시작 시간 초과 5건과 감독 설정 회귀 1건 시간 초과가 있었다. 부하가 내려간 뒤 해당 회귀 단독·전체 재실행에서 통과했다(`unit-wired.log`). 같은 시점 쿠키 갱신 E2E Red 1건이 15.6분 걸렸으며 원인은 확인하지 못했다(새 빌드 Green 실행은 0.5초).
+- **dev stream 경고**: dev E2E 로그 21건(prod 0건). 이슈 #5 와 같이 refresh 응답 중 이동·컨텍스트 종료로 추정하며 요청 단위 확인은 하지 않았다.
+- **E2E 원본 루트 소유권**(감독 `originals-cleanup.review.test.ts`, `codex-red-e2e-cleanup.log`): `E2E_ORIGINALS_DIR` 로 이전부터 있던 폴더를 지정하면 접두사만 보는 teardown 이 그 폴더를 통째로 지우던 테스트 도구 결함. Red(감독 1건 + 소유 경계 5건, `red-e2e-ownership.log`) 확인 뒤, global-setup 이 루트를 직접 새로 만들 때만(이미 있으면 실패) 실행별 토큰 표식을 남기고 teardown·테스트별 부분 정리는 표식이 일반 파일이고 토큰이 같을 때만 하도록 고쳤다(소유하지 않은 루트는 정리하지 않고 실패). 런타임 코드는 바꾸지 않았다. 이 변경 뒤 E2E 는 Opus 가 실행하지 않았으며 감독 최종 prod E2E 에서 확인한다.
+- **claim 실패 시 삭제 권한**(감독 추가 회귀, `codex-red-failed-claim.log`): 이전 표식과 같은 토큰이 환경변수로 전달되면 루트 생성(EEXIST)에 실패해도 teardown 이 기존 폴더를 지우던 문제. Red 확인(`red-failed-claim.log`) 뒤, claim 시작 시 이어받은 생성 기록을 지우고 루트를 실제로 새로 만든 경우에만 새 claim nonce 를 환경변수·표식에 함께 남기며, 소유 판정은 토큰과 이번 claim nonce 가 모두 맞을 때만 한다. claim 실패 시 기존 폴더 보존·정상 claim 루트 정리·워커의 합성 계정 부분 정리 전파를 테스트로 확인(감독 3건 + Opus 6건). 런타임 변경 없음, E2E 는 감독 최종 실행에서 확인한다.
+
+### 이슈 #7 감독 최종 사전 검수
+
+- E2E cleanup 감독 Red1(기존 루트 삭제)→token 표식 도입 후, 같은 token을 이어받고 claim이 실패해도 기존루트를 지우는 추가 Red1을 확인했다(`originals-cleanup.review.test.ts`, `codex-red-e2e-cleanup.log`, `codex-red-failed-claim.log`). 실제 생성 성공시에만 새 claim nonce를 남기도록 보완해 정상정리·실패보존·worker전파9개가 통과했다. 테스트는 본인 소유 합성 sentinel만 사용했다.
+- 감독 직접 최종 통과: unit91파일641개, Chromium Story29파일135개, 실제DB5파일68개, 타입·lint경고0·format, production build·Storybook build, migration 재현·local advisors(No issues), 최종production E2E65/65. dev65/65는 Opus 로그 확인. `.local/issue7/codex-*-final.log`.
+- 원본Route 출력추적 manifest116개에서 public/src/.local/samples 경로0건을 독립 확인했다. 실제 원본·토큰·비밀번호·샘플·캡처는 Git에 올리지 않는다.
+- Browser plugin not available이므로 프로젝트Playwright를 사용해 별도3300 서버·고유QA루트로 직접 확인했다. 수동보관 전 원본요청0, 보관5파일·루트0700/파일0600, desktop1440×1000/mobile390×844 가로넘침0, 새브라우저 복원→실제렌더→길이측정, B 원본접근404, JS없는 SSR 보관표시·no-store·서버경로미노출, pageerror/console error0. `.local/issue7/codex-browser-qa.log`, `qa-*.png` 시각 확인. 실제 samples나 사용자 원본은 쓰지 않았다.
+- dev stream21건은 요청별 원인을 이번에 확인하지 않아 추정으로 남긴다. 감독 최종prod/QA에는0건이다. SDK expires_at 유도 쿠키갱신은 실제JWT 자연만료 검증이 아니다. 미검증 환경·데이터·배포범위는 위와 같으며 독립 PR 리뷰와 사용자 병합 결정은 별도다.

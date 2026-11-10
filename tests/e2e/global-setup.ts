@@ -9,6 +9,7 @@ import {
 } from "../../scripts/auth/local-supabase";
 import {
   conflictingSingleImage,
+  largeImage,
   ctStack,
   jpegLsImage,
   multiframeSpatial,
@@ -17,6 +18,8 @@ import {
   otherStudyImage,
   singleImage,
 } from "../fixtures/dicom/scenarios";
+
+import { claimOriginalsRoot } from "./originals-paths";
 
 export const FIXTURE_DIR = path.join(import.meta.dirname, ".fixtures");
 /** 테스트 계정 비밀번호(실행마다 새로 생성, 권한 0600, git 제외) */
@@ -39,6 +42,8 @@ export const E2E_EMAILS = {
  * 2) 업로드할 합성 DICOM 파일을 디스크에 쓴다(실제 환자 데이터 아님).
  */
 export default async function globalSetup() {
+  // 이번 실행 전용 서버 원본 루트를 직접 만들고 소유 표식을 남긴다(이미 있으면 실패, 남의 폴더를 쓰지 않음)
+  await claimOriginalsRoot();
   const status = readLocalStatus();
   const users: Record<string, { email: string; password: string; id: string }> =
     {};
@@ -60,6 +65,8 @@ export default async function globalSetup() {
     uncalibrated: [await otherStudyImage()],
     // single 과 SOP UID 는 같고 내용이 다른 파일(서버 목록 digest 불일치·충돌)
     conflict: [await conflictingSingleImage()],
+    // Proxy 본문 복제 상한(10MB)을 넘는 합성 원본(2560×2560 16비트 ≈ 13MB)
+    large: [await largeImage()],
   };
   for (const [group, files] of Object.entries(groups)) {
     const dir = path.join(FIXTURE_DIR, group);

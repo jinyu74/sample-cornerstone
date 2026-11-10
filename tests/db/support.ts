@@ -57,14 +57,17 @@ async function signIn(
   return { id, client };
 }
 
-export async function setupDbTest(): Promise<DbTestContext> {
+/** 합성 계정 쌍으로 실제 로그인한다. 테스트 파일별로 다른 계정 쌍을 주면 자료가 섞이지 않는다 */
+export async function setupDbTest(
+  emails: { a: string; b: string } = DB_TEST_EMAILS,
+): Promise<DbTestContext> {
   const status = readLocalStatus();
   return {
     status,
     anon: createClient(status.apiUrl, status.publishableKey, NO_PERSIST),
     admin: createClient(status.apiUrl, status.secretKey, NO_PERSIST),
-    a: await signIn(status, DB_TEST_EMAILS.a),
-    b: await signIn(status, DB_TEST_EMAILS.b),
+    a: await signIn(status, emails.a),
+    b: await signIn(status, emails.b),
   };
 }
 

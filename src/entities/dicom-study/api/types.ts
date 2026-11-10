@@ -50,7 +50,9 @@ export type DicomParseFailureReason =
   | "missing-uid"
   | "unsupported-transfer-syntax"
   | "no-pixel-data"
-  | "invalid-frame-count";
+  | "invalid-frame-count"
+  /** 서버 해제 상한을 넘게 팽창하는 deflate 데이터셋 */
+  | "inflated-too-large";
 
 export type DicomParseResult =
   | { ok: true; metadata: DicomInstanceMetadata }

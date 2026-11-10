@@ -68,6 +68,12 @@ export type {
 export type {
   CatalogListResult,
   CatalogStudySummary,
+  ServerOriginalsAvailability,
 } from "./model/catalog-summary";
+export {
+  markStoredOriginals,
+  summarizeServerOriginals,
+} from "./model/server-originals";
+export type { ServerOriginalsSummary } from "./model/server-originals";
 export type { CatalogSyncOutcome } from "./api/catalog-repository";
 export { compareUid } from "./model/compare-uid";

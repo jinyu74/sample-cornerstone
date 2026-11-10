@@ -7,6 +7,7 @@ import {
 } from "../../scripts/auth/local-supabase";
 
 import { e2eUser } from "./helpers";
+import { removeOwnedUserDirs } from "./originals-paths";
 
 export { expect } from "@playwright/test";
 
@@ -30,11 +31,17 @@ export async function resetServerCatalog(): Promise<void> {
   if (error) throw new Error(`E2E 서버 목록 정리 실패: ${error.message}`);
 }
 
-/** 모든 E2E 가 쓰는 test: 시작 전에 합성 계정의 서버 목록을 비운다 */
+/** 이번 실행이 만든 서버 원본 루트에서 합성 계정 A·B 의 원본 폴더만 지운다(소유하지 않은 루트면 실패) */
+export async function resetServerOriginals(): Promise<void> {
+  await removeOwnedUserDirs([(await e2eUser("a")).id, (await e2eUser("b")).id]);
+}
+
+/** 모든 E2E 가 쓰는 test: 시작 전에 합성 계정의 서버 목록·서버 원본을 비운다 */
 export const test = base.extend<{ cleanServerCatalog: void }>({
   cleanServerCatalog: [
     async ({}, use) => {
       await resetServerCatalog();
+      await resetServerOriginals();
       await use();
     },
     { auto: true },
