@@ -84,3 +84,14 @@
 - **표시 규칙**: 원본 일치(서버 기록 대비 complete/partial/missing/mismatch)와 이 브라우저 실제 원본 수를 분리한다. 열기·미작업 판정은 실제 로컬 원본 기준, 반영 상태 우선순위는 이번 화면의 진행 중·실패 > 내용 불일치(충돌, 새로고침 후에도 유지) > 계산값. 시리즈 수는 서버∪로컬 시리즈 UID 합집합.
 - **동기화 hook**: 진행 중인 검사에 다시 요청이 오면 dirty 로 표시하고, 끝난 뒤 최신 원본을 다시 읽어 마지막으로 보낸 스냅샷과 다를 때만 다시 보낸다. 언마운트·계정 변경 뒤 끝난 응답은 상태·`router.refresh` 에 반영하지 않는다.
 - **migration 관리**: `db query` 로 로컬 스키마를 반복 검토 → advisors → `supabase db diff --local -s public -f <이름>` 로 CLI 생성 → 이미 적용된 로컬 DB 는 `migration repair --status applied` 로 기록만(재실행·db reset 없음) → `db:verify-migrations` 로 새 임시 DB 재현 비교. 파일 2개(`20261104064142_study_catalog`, `20261104064659_study_catalog_rpc_input_validation`).
+
+### 이슈 #7 비공개 DICOM 원본 보관·인증 조회 기술 결정
+
+- **저장 방식**: 원본은 server-only `DICOM_DATA_DIR` 아래 비공개 파일(`v1/users/<Auth UUID>/instances/<SOP UID>.<SHA-256>.dcm`, 디렉터리 0700·파일 0600)로만 보관한다. DB·Storage·public 미사용, 새 테이블·권한 없음. 보관 여부는 실제 파일로만 판정한다(DB 플래그는 파일 손실·부분 실패 시 거짓 성공 위험).
+- **UX**: 사용자 결정에 따라 검사별 "서버에 원본 보관" 버튼만 업로드를 시작한다(자동 업로드 없음). 새 브라우저는 "서버에서 원본 불러오기"로 받아 기존 `importDicomFiles` 경로로 계정별 IndexedDB 에 저장한다.
+- **Proxy 제외**: 설치된 `next/dist/server/body-streams.js` 의 `getCloneableBody` 는 Proxy 가 실행되는 요청 본문을 메모리에 복제하고 10MB 에서 잘라 버린다. `experimental.proxyClientMaxBodySize` 로 키우면 버퍼 메모리도 커지므로, `/api/originals/` 를 matcher 에서 제외하고 Route 가 Auth(getUser)·토큰 갱신 쿠키·인증 설정 오류(503)를 직접 처리한다.
+- **수신 순서**: 같은 출처·형식 → Auth·기대 계정 → 설정 → 동시성 → 스트림 수신(상한, 부분 쓰기 반복·0바이트 쓰기 실패) → 서버 파싱(상한 있는 deflate 해제기 주입, 브라우저 경로 불변) → 주소 SOP = 파일 SOP → 서버 메타데이터로 카탈로그 RPC(RLS·충돌) → `link` 로 원자적 공개(덮어쓰기 없음, `EEXIST` 는 일반 파일·내용 digest 일치일 때만 멱등 성공). 다른 프로세스와의 같은 SOP 다른 내용 경합은 카탈로그 고유 키가 막고, 프로세스 안에서는 루트·owner·SOP 별 전역 lock 으로 직렬화한다.
+- **저장 루트 검증**: 문자열 비교만으로는 대소문자 별칭(`PUBLIC`=`public`, `PROJECT`=프로젝트)을 막지 못해, 금지 폴더·프로젝트 루트와 기존 상위 폴더의 장치·inode 를 비교하고 아직 없는 금지 폴더는 프로젝트 기준 첫 구성요소를 대소문자 무시로 비교한다. symlink·그룹/기타 권한은 거부하고 기존 권한을 바꾸지 않는다. Turbopack 이 프로젝트 경로 검사를 출력 추적으로 오인해 프로젝트 전체를 서버 출력에 넣지 않도록 해당 `path.join` 에 `turbopackIgnore` 를 둔다(빌드 경고 0, 원본 Route 추적 파일에 public·src 없음 확인).
+- **읽기 무결성**: 다운로드 스트림은 읽는 동안 digest 를 다시 계산해 다르면 오류로 끝나고, 클라이언트도 서버 목록 digest 와 비교한 뒤에만 저장한다.
+- **상한**: 파일 256MiB, 동시 업로드 기본 1(감독 결정, 메모리는 업로드당 파일 상한의 몇 배로 추정). 삭제·보존·계정별 용량 상한은 이번 범위 밖(운영자 수동 관리, 디스크 부족 507).
+- **목록 DAL**: `listStoredOriginals()` 는 owner 인자를 받지 않고 현재 Auth 계정만 쓴다(감독 지적). SSR 목록은 영상별 `stored` 와 기능 상태만 담고 경로·헤더·원본을 담지 않는다.

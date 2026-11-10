@@ -16,6 +16,8 @@ export const UID = {
   studyMr: "2.25.100003",
   seriesMrStack: "2.25.200010",
   forMr: "2.25.300002",
+  studyLarge: "2.25.100004",
+  seriesLarge: "2.25.200020",
 } as const;
 
 export interface FixtureFile {
@@ -287,4 +289,22 @@ export async function mrStack(): Promise<FixtureFile[]> {
       };
     }),
   );
+}
+
+/** 10MB 를 넘는 단일 영상(Proxy 본문 복제 상한 회귀용, 2560×2560 16비트 ≈ 13MB) */
+export async function largeImage(): Promise<FixtureFile> {
+  return {
+    name: "large.dcm",
+    bytes: await buildSyntheticDicom({
+      studyInstanceUid: UID.studyLarge,
+      seriesInstanceUid: UID.seriesLarge,
+      sopInstanceUid: "2.25.470001",
+      accessionNumber: "SYN-LARGE",
+      rows: 2560,
+      columns: 2560,
+      seriesNumber: 1,
+      instanceNumber: 1,
+      pixel: (_f, r, c) => (r * 7 + c * 3) % 4000,
+    }),
+  };
 }

@@ -1,3 +1,5 @@
+import { deflateRawSync } from "node:zlib";
+
 /**
  * 테스트 전용 합성 DICOM Part 10 생성기.
  * 실제 환자 데이터를 쓰지 않기 위해 UID·식별자·픽셀을 모두 코드로 만든다.
@@ -8,6 +10,8 @@ export const TS = {
   explicitLittle: "1.2.840.10008.1.2.1",
   implicitLittle: "1.2.840.10008.1.2",
   jpegLsLossless: "1.2.840.10008.1.2.4.80",
+  /** 데이터셋 전체를 deflate 로 압축(픽셀은 비압축 OW) */
+  deflatedExplicitLittle: "1.2.840.10008.1.2.1.99",
   /** 디코더가 지원하지 않는 MPEG2 비디오 */
   mpeg2: "1.2.840.10008.1.2.4.100",
 } as const;
@@ -224,10 +228,14 @@ export async function buildSyntheticDicom(
     value: u32(metaBytes.length),
   });
 
-  const datasetBytes =
+  const encodedDataset =
     transferSyntaxUid === TS.implicitLittle
       ? concat(dataset.map(encodeImplicitElement))
       : concat(dataset.map(encodeElement));
+  const datasetBytes =
+    transferSyntaxUid === TS.deflatedExplicitLittle
+      ? new Uint8Array(deflateRawSync(encodedDataset))
+      : encodedDataset;
 
   return concat([
     new Uint8Array(128),
@@ -293,7 +301,8 @@ async function pixelDataElement(
 ): Promise<Element> {
   if (
     transferSyntaxUid === TS.explicitLittle ||
-    transferSyntaxUid === TS.implicitLittle
+    transferSyntaxUid === TS.implicitLittle ||
+    transferSyntaxUid === TS.deflatedExplicitLittle
   ) {
     const bytes = concat(frames.map((frame) => new Uint8Array(frame.buffer)));
     return { tag: [0x7fe0, 0x0010], vr: "OW", value: bytes };

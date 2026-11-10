@@ -18,6 +18,7 @@ const FAILURE_MESSAGES: Record<
     detail
       ? `프레임 수 정보가 올바르지 않습니다(${detail})`
       : "프레임 수 정보가 올바르지 않습니다",
+  "inflated-too-large": () => "압축을 풀면 허용 크기를 넘는 파일입니다",
   "read-error": () => "파일을 읽을 수 없습니다",
   "storage-quota-exceeded": () =>
     "브라우저 저장 용량이 부족해 저장하지 못했습니다",

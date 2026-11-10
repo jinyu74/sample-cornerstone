@@ -91,6 +91,9 @@ describe("buildCatalogRows", () => {
         modalities: ["CT"],
         seriesCount: 1,
         localOriginals: 0,
+        serverOriginals: { kind: "unavailable" },
+        uploadableOriginals: 0,
+        downloadableOriginals: 0,
         workStatus: "checking",
         originals: { kind: "checking" },
         sync: { kind: "checking" },
@@ -318,6 +321,121 @@ describe("buildCatalogRows", () => {
       localOriginals: 1,
       workStatus: "untouched",
       sync: { kind: "unsynced", count: 1 },
+    });
+  });
+
+  describe("서버 원본 보관 상태(실제 서버 파일 기준)", () => {
+    const storedServer = (stored: boolean[]) =>
+      server({
+        instances: stored.map((flag, i) => ({
+          sopInstanceUid: `2.25.1.${i + 1}`,
+          contentDigest: D(i + 1),
+          ...(flag ? { stored: true as const } : {}),
+        })),
+        instanceCount: stored.length,
+      });
+
+    it("보관 기능이 켜져 있으면 서버 보관 수와 보관·불러오기 후보 수를 준다", () => {
+      const [row] = buildCatalogRows({
+        server: {
+          status: "ready",
+          studies: [storedServer([true, false])],
+          originals: "ready",
+        },
+        local: local([[meta("2.25.1.2"), D(2)]]),
+        works: NO_WORKS,
+        sync: new Map(),
+      });
+      expect(row).toMatchObject({
+        serverOriginals: { kind: "summary", stored: 1, total: 2 },
+        uploadableOriginals: 1,
+        downloadableOriginals: 1,
+      });
+    });
+
+    it("메타데이터만 반영되고 파일이 없으면 보관됨이 아니다(0/n)", () => {
+      const [row] = buildCatalogRows({
+        server: {
+          status: "ready",
+          studies: [storedServer([false, false])],
+          originals: "ready",
+        },
+        local: local([]),
+        works: NO_WORKS,
+        sync: new Map(),
+      });
+      expect(row).toMatchObject({
+        serverOriginals: { kind: "summary", stored: 0, total: 2 },
+        downloadableOriginals: 0,
+      });
+    });
+
+    it.each([
+      ["unconfigured", { kind: "unconfigured" }],
+      ["unavailable", { kind: "unavailable" }],
+      [undefined, { kind: "unavailable" }],
+    ] as const)(
+      "보관 기능 상태 %s → %j(보관됨 추정 없음, 동작 없음)",
+      (originals, expected) => {
+        const [row] = buildCatalogRows({
+          server: {
+            status: "ready",
+            studies: [storedServer([true])],
+            ...(originals ? { originals } : {}),
+          },
+          local: local([[meta("2.25.1.9"), D(9)]]),
+          works: NO_WORKS,
+          sync: new Map(),
+        });
+        expect(row).toMatchObject({
+          serverOriginals: expected,
+          uploadableOriginals: 0,
+          downloadableOriginals: 0,
+        });
+      },
+    );
+
+    it("이 브라우저를 확인하기 전(최초 HTML)에는 서버 보관 수만 보이고 후보는 0 이다", () => {
+      const [row] = buildCatalogRows({
+        server: {
+          status: "ready",
+          studies: [storedServer([true, true])],
+          originals: "ready",
+        },
+        local: LOADING,
+        works: { status: "loading", statuses: new Map() },
+        sync: new Map(),
+      });
+      expect(row).toMatchObject({
+        serverOriginals: { kind: "summary", stored: 2, total: 2 },
+        uploadableOriginals: 0,
+        downloadableOriginals: 0,
+      });
+    });
+
+    it("진행 중·실패한 보관/불러오기 상태가 계산값보다 우선한다", () => {
+      const rows = buildCatalogRows({
+        server: {
+          status: "ready",
+          studies: [storedServer([false])],
+          originals: "ready",
+        },
+        local: local([[meta("2.25.1.1"), D(1)]]),
+        works: NO_WORKS,
+        sync: new Map(),
+        transfers: new Map([
+          [
+            "2.25.1",
+            { kind: "running", direction: "upload", done: 0, total: 1 },
+          ],
+        ]),
+      });
+      expect(rows[0]!.serverOriginals).toEqual({
+        kind: "running",
+        direction: "upload",
+        done: 0,
+        total: 1,
+      });
     });
   });
 });

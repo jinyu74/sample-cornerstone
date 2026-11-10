@@ -23,6 +23,7 @@ import {
 
 import type { StudyTableRow } from "../model/types";
 
+import { ServerOriginalsCell } from "./server-originals-cell";
 import { SyncCell } from "./sync-cell";
 
 export interface StudyTableProps {
@@ -37,6 +38,10 @@ export interface StudyTableProps {
   onSync?: (studyInstanceUid: string) => void;
   /** 이 브라우저에 없는 원본을 다시 가져오기 */
   onImportOriginals?: () => void;
+  /** 그 검사의 이 브라우저 원본을 서버 비공개 폴더에 보관(사용자가 누를 때만) */
+  onUploadOriginals?: (studyInstanceUid: string) => void;
+  /** 그 검사의 서버 보관 원본을 이 브라우저로 불러오기 */
+  onDownloadOriginals?: (studyInstanceUid: string) => void;
 }
 
 /** 서버 기록과 맞든 아니든 이 브라우저에 원본이 있으면 열 수 있다 */
@@ -56,6 +61,8 @@ export function StudyTable({
   getStudyHref,
   onSync,
   onImportOriginals,
+  onUploadOriginals,
+  onDownloadOriginals,
 }: StudyTableProps) {
   const alert =
     status === "error" ? (
@@ -117,6 +124,7 @@ export function StudyTable({
               <TableHead>시리즈</TableHead>
               <TableHead>이 브라우저 원본</TableHead>
               <TableHead>서버 목록</TableHead>
+              <TableHead>서버 원본</TableHead>
               <TableHead>작업 상태</TableHead>
               <TableHead className="w-24 pr-4">
                 <span className="sr-only">동작</span>
@@ -144,6 +152,28 @@ export function StudyTable({
                     identifier={item.identifier}
                     onSync={
                       onSync ? () => onSync(item.studyInstanceUid) : undefined
+                    }
+                  />
+                </TableCell>
+                <TableCell>
+                  <ServerOriginalsCell
+                    identifier={item.identifier}
+                    status={item.serverOriginals}
+                    uploadable={item.uploadableOriginals}
+                    downloadable={item.downloadableOriginals}
+                    disabled={
+                      item.originals.kind === "checking" ||
+                      item.originals.kind === "unreadable"
+                    }
+                    onUpload={
+                      onUploadOriginals
+                        ? () => onUploadOriginals(item.studyInstanceUid)
+                        : undefined
+                    }
+                    onDownload={
+                      onDownloadOriginals
+                        ? () => onDownloadOriginals(item.studyInstanceUid)
+                        : undefined
                     }
                   />
                 </TableCell>

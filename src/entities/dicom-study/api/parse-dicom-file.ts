@@ -79,7 +79,18 @@ const REQUIRED_UIDS = [
 ] as const;
 
 /** DICOM Part 10 바이트를 파싱해 정규화된 메타데이터를 만든다. 파일 이름·확장자는 쓰지 않는다. */
-export function parseDicomFile(bytes: Uint8Array): DicomParseResult {
+export interface ParseDicomOptions {
+  /**
+   * deflate 전송 구문 해제기(dicom-parser `options.inflater`). 서버는 상한 있는 해제기를 넘긴다.
+   * 생략하면 기존 동작(dicom-parser 기본 경로)을 그대로 쓴다.
+   */
+  inflater?: (byteArray: Uint8Array, position: number) => Uint8Array;
+}
+
+export function parseDicomFile(
+  bytes: Uint8Array,
+  options: ParseDicomOptions = {},
+): DicomParseResult {
   if (!hasPart10Preamble(bytes)) {
     return {
       ok: false,
@@ -90,8 +101,17 @@ export function parseDicomFile(bytes: Uint8Array): DicomParseResult {
 
   let dataSet: DataSet;
   try {
-    dataSet = parseDicom(bytes);
+    // 반환값이 있는 해제기도 void 콜백 형식에 그대로 대입된다(타입 단언 불필요)
+    dataSet = options.inflater
+      ? parseDicom(bytes, { inflater: options.inflater })
+      : parseDicom(bytes);
   } catch (error) {
+    if (error instanceof Error && error.name === "InflatedTooLargeError")
+      return {
+        ok: false,
+        reason: "inflated-too-large",
+        detail: "deflate 해제 크기가 상한을 넘습니다",
+      };
     return { ok: false, reason: "parse-error", detail: describeError(error) };
   }
 

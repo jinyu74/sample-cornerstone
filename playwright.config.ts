@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 import { readLocalStatus } from "./scripts/auth/local-supabase";
 import { AUTH_STATE } from "./tests/e2e/auth-paths";
+import { ORIGINALS_DIR } from "./tests/e2e/originals-paths";
 
 /**
  * E2E_MODE=prod(기본): 프로덕션 빌드 후 next start 로 검증한다.
@@ -19,6 +20,7 @@ const supabase = readLocalStatus();
 export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
+  globalTeardown: "./tests/e2e/global-teardown.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -53,6 +55,8 @@ export default defineConfig({
     env: {
       SUPABASE_URL: supabase.apiUrl,
       SUPABASE_PUBLISHABLE_KEY: supabase.publishableKey,
+      // 이번 실행 전용 서버 원본 루트(미리보기·사용자 원본 폴더와 분리, 끝나면 이 루트만 삭제)
+      DICOM_DATA_DIR: ORIGINALS_DIR,
     },
     timeout: 300_000,
   },

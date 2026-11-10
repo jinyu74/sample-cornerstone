@@ -54,3 +54,18 @@
 - 감독 최종 사전 검수: 단위·통합525, Story121, 실제DB40, 타입·lint·format·앱/Storybook 빌드, 전체prod58/58, dev58/58(실행 Opus) 통과. 데스크톱·모바일/새 브라우저·JS 없는 SSR·영상 렌더·네트워크 메타데이터·브라우저 오류0 직접 확인. PR 독립 리뷰와 사용자 병합 결정은 별도 단계다.
 
 - PR #6 오픈·독립 리뷰 완료: https://github.com/jinyu74/sample-cornerstone/pull/6 . 런타임 head18f231c의 전체76파일 No findings. 같은 계정 리뷰 댓글은 정식 Approve나 병합 허가가 아니다. 사용자 PR 확인·병합 결정 대기이며 원본 서버 폴더/API와 결과 DB는 후속이다. 기록 문서 변경 이후 최신 head 판정은 PR 댓글을 기준으로 확인한다.
+
+## 이슈 #7 — 비공개 서버 원본 보관·인증 조회(진행 중)
+
+- PR #6을 사용자 명시 요청으로 main `b511637`에 병합했다. https://github.com/jinyu74/sample-cornerstone/issues/7, `feat/7-private-dicom-originals`에서 후속 구현 중이다.
+- 사용자 결정은 검사별 명시적 보관 버튼이며 자동 업로드하지 않는다. 비공개 FS/소유자 인증 API/새 브라우저 불러오기를 구현하고 DB에는 기존 allowlist metadata만 둔다. 동적 Node 서버+영속 디스크 구조이며 실제 배포·결과DB는 후속이다.
+- baseline unit525·실제DB40 통과, 설정/FS Red→Green 및 감독 파일 무결성·권한·부분쓰기 회귀를 검수 중이다. 세부 근거는 `docs/reviews.md` 이슈 #7 절. 전체 품질·브라우저 검수·독립 PR 리뷰는 아직 남았다.
+
+## 이슈 #7 — 비공개 DICOM 원본 보관·인증 조회
+
+- 이슈 https://github.com/jinyu74/sample-cornerstone/issues/7 , 브랜치 `feat/7-private-dicom-originals`, 기준 main `b511637f2e53921211bfb6c91ae902d282c5e375`. 지시 `docs/tasks/7-private-dicom-originals.md`, 계획 `.local/issue7/plan.md`.
+- 2026-11-10 Opus 구현 단계 완료(감독 최종 검수 대기, 커밋 전): 설정·FS 저장소·deflate 상한·원본 Route(GET/PUT)·Proxy 제외·SSR 보관 표시·클라이언트 어댑터/hook·"서버 원본" 셀·화면 연결·E2E 7건.
+- Opus 최종 실행: 단위 632, Story 135, 실제 DB 68, migration 재현 검증, typecheck·lint·format, 앱 빌드(경고 0), Storybook 빌드, prod E2E 65/65, dev E2E 65/65.
+- 남은 제한: 원본 삭제·보존·계정별 용량 없음(운영자 수동 관리), 실제 호스팅·서버 사양 미정, Chromium 외 브라우저 미검증, dev 서버 RSC stream 경고(21건, 이슈 #5 와 같은 원인으로 추정). 결과 서버 저장은 후속 이슈다.
+
+- 이슈 #7 감독 사전검수 완료: unit641·Story135·실제DB68·타입/lint/format·앱/Storybook build·migration/advisors·최종prod65/65 직접 통과(dev65/65는 Opus). 별도브라우저의 수동보관·복원·측정·계정차단·SSR·데스크톱/모바일·파일권한 확인. 미리보기3000을 최종빌드로 재기동했고 로컬 .env에 비공개 저장루트를 준비했다. 현재 PR·독립리뷰는 GitHub와 `.local/issue7/supervisor-status.json`이 기준이며 사용자 병합 요청은 아직 없다. 작업 결과 DB/클라우드는 후속이다.
